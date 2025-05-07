@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "_form_helpers.html" as forms %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="prose max-w-none mb-6">
+        <h1>{{ form_title }}</h1>
+        {% if model %}
+            <p>修改您的自定义AI模型配置。API Key 字段留空则表示不更改现有密钥。</p>
+        {% else %}
+            <p>添加一个新的自定义AI模型到系统中。请确保您填写的信息准确无误。</p>
+        {% endif %}
+    </div>
+
+    <div class="card bg-base-200 shadow-xl">
+        <form method="POST" novalidate class="card-body space-y-4">
+            {{ form.hidden_tag() }}
+
+            {{ forms.render_field(form.display_name, placeholder='例如：我的 GPT-4o 模型', required=True) }}
+            
+            {{ forms.render_field(form.model_identifier, placeholder='例如：gpt-4o 或 claude-3-opus-20240229', required=True) }}
+            
+            {{ forms.render_field(form.api_base_url, placeholder='例如：https://api.openai.com/v1', required=True) }}
+            
+            <div class="form-control">
+                {{ form.api_key.label(class="label") }}
+                {{ form.api_key(class="input input-bordered w-full", type="password", placeholder="如需设置或更新API Key请在此填写") }}
+                <label class="label">
+                    <span class="label-text-alt">{{ form.api_key.description }} {% if model and model.encrypted_api_key %}(当前已设置，留空则不修改){% endif %}</span>
+                </label>
+                {% if form.api_key.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">
+                            {% for error in form.api_key.errors %}
+                                {{ error }}<br>
+                            {% endfor %}
+                        </span>
+                    </label>
+                {% endif %}
+            </div>
+
+            {{ forms.render_field(form.provider_name, placeholder='例如：OpenAI, Anthropic, Groq 等') }}
+            
+            {{ forms.render_field(form.default_temperature, placeholder='例如：0.7 (0到2之间)', type='number', html_attrs={'step': '0.1', 'min': '0', 'max': '2'}) }}
+            
+            {{ forms.render_field(form.system_prompt, type='TextAreaField', placeholder='定义模型的默认行为和角色，例如：You are a helpful assistant.') }}
+
+            {{ forms.render_field(form.notes, type='TextAreaField', placeholder='关于此模型的其他备注信息。') }}
+
+            <div class="card-actions justify-end pt-4">
+                <a href="{{ url_for('models.list_models') }}" class="btn btn-ghost">取消</a>
+                {{ forms.render_submit_button(form.submit, class='btn-primary', text=submit_button_text) }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

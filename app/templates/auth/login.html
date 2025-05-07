@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% import "_form_helpers.html" as forms %}
+
+{% block title %}用户登录 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="hero min-h-[calc(100vh-200px)] bg-base-100">
+    <div class="hero-content flex-col lg:flex-row-reverse">
+        <div class="text-center lg:text-left lg:pl-10">
+            <h1 class="text-5xl font-bold">立即登录!</h1>
+            <p class="py-6">首次登录将使用用户名作为初始密码自动创建账户。登录后请及时修改密码以确保账户安全。</p>
+        </div>
+        <div class="card shrink-0 w-full max-w-sm shadow-2xl bg-base-200">
+            <form method="POST" action="{{ url_for('auth.login') }}" novalidate class="card-body">
+                {{ form.hidden_tag() }}
+                
+                {{ forms.render_field(form.username, placeholder='请输入用户名', required=True) }}
+                
+                {{ forms.render_field(form.password, type='password', placeholder='请输入密码', required=True) }}
+                
+                {{ forms.render_checkbox_field(form.remember_me, label_text='记住我') }}
+                
+                <div class="form-control mt-6">
+                    {{ forms.render_submit_button(form.submit, class='btn-primary', text='登录') }}
+                </div>
+                 {# <div class="text-sm mt-4">
+                    <a href="#" class="link link-hover">忘记密码?</a>
+                </div> #}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}仪表盘 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- 模型管理卡片 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-cogs text-5xl text-primary"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">模型管理</h2>
+                <p>管理您的AI模型，包括系统内置模型和自定义模型。</p>
+                <div class="card-actions">
+                    <a href="{{ url_for('models.list_models') }}" class="btn btn-primary"><i class="fas fa-arrow-right mr-1"></i> 前往管理</a>
+                    {# Placeholder: {{ url_for('models_bp.list_models') }} #}
+                </div>
+            </div>
+        </div>
+
+        <!-- 开始对话卡片 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-comments text-5xl text-success"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">开始对话</h2>
+                <p>与单个或多个模型进行对话，比较它们的回答。</p>
+                <div class="card-actions">
+                    <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-success"><i class="fas fa-arrow-right mr-1"></i> 进入对话</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 对话历史卡片 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-history text-5xl text-info"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">对话历史</h2>
+                <p>查看和管理您过去的对话记录。</p>
+                <div class="card-actions">
+                    <a href="{{ url_for('chat.chat_history_list') }}" class="btn btn-info"><i class="fas fa-arrow-right mr-1"></i> 查看历史</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 占位卡片 - 测试集管理 (未来迭代) -->
+        <div class="card bg-base-100 shadow-xl opacity-70">
+             <figure class="px-10 pt-10">
+                <i class="fas fa-vials text-5xl text-base-content opacity-50"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">测试集管理 <span class="badge badge-ghost">未来</span></h2>
+                <p>管理标准测试集和自定义测试集。</p>
+                <div class="card-actions">
+                    <button class="btn btn-disabled"><i class="fas fa-lock mr-1"></i> 即将推出</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 占位卡片 - 模型评测 (未来迭代) -->
+        <div class="card bg-base-100 shadow-xl opacity-70">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-chart-line text-5xl text-base-content opacity-50"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">模型评测 <span class="badge badge-ghost">未来</span></h2>
+                <p>基于测试集对模型进行批量评测。</p>
+                <div class="card-actions">
+                     <button class="btn btn-disabled"><i class="fas fa-lock mr-1"></i> 即将推出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

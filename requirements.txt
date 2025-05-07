@@ -1,0 +1,15 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-Login
+Flask-WTF
+# Pydantic # Not directly used in backend forms for now, can be added if API validation is needed
+requests # For calling model APIs
+python-dotenv
+PyMySQL # For MySQL connection
+cryptography # For API key encryption
+openai # For OpenAI compatible API calls
+
+# For development (optional, but recommended)
+# Flask-Testing
+# pytest 

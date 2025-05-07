@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% import "_form_helpers.html" as forms %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="prose max-w-none mb-6">
+    <h1>{{ title }}</h1>
+    <p>管理您的AI模型。系统内置模型无法修改，您可以添加、编辑或删除自定义模型。</p>
+</div>
+
+<div class="mb-6 text-right">
+    <a href="{{ url_for('models.create_model') }}" class="btn btn-primary"><i class="fas fa-plus mr-2"></i>添加自定义模型</a>
+</div>
+
+{% if models %}
+    <div class="overflow-x-auto shadow-lg rounded-lg">
+        <table class="table w-full table-zebra">
+            <thead>
+                <tr>
+                    <th>显示名称</th>
+                    <th>模型标识</th>
+                    <th>提供商</th>
+                    <th>类型</th>
+                    <th class="text-center">已验证</th>
+                    <th class="text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for model in models %}
+                <tr class="hover">
+                    <td>
+                        <div class="font-bold">{{ model.display_name }}</div>
+                        {% if model.is_system_model %}
+                            <span class="badge badge-neutral badge-sm">系统模型</span>
+                        {% else %}
+                            <span class="badge badge-accent badge-outline badge-sm">自定义</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ model.model_identifier }}</td>
+                    <td>{{ model.provider_name if model.provider_name else 'N/A' }}</td>
+                    <td>
+                        {% if model.model_type == 'openai_compatible' %}
+                            <span class="badge badge-info badge-sm">OpenAI兼容</span>
+                        {% else %}
+                            <span class="badge badge-sm">{{ model.model_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if model.is_validated %}
+                            <span class="tooltip tooltip-success" data-tip="已验证">
+                                <i class="fas fa-check-circle text-success text-lg"></i>
+                            </span>
+                        {% else %}
+                            <span class="tooltip tooltip-warning" data-tip="未验证或验证失败">
+                                <i class="fas fa-exclamation-triangle text-warning text-lg"></i>
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center space-x-1">
+                        <form action="{{ url_for('models.validate_model', model_id=model.id) }}" method="POST" class="inline-block">
+                            <button type="submit" class="btn btn-xs btn-outline btn-info tooltip" data-tip="验证模型连通性">
+                                <i class="fas fa-plug"></i> 验证
+                            </button>
+                        </form>
+                        
+                        {# <a href="#" class="btn btn-xs btn-success tooltip" data-tip="开始对话"><i class="fas fa-comments"></i> 对话</a> #}
+                        
+                        {% if not model.is_system_model %}
+                            <form action="{{ url_for('models.edit_model', model_id=model.id) }}" method="GET" class="inline-block">
+                                <button type="submit" class="btn btn-xs btn-outline btn-warning tooltip" data-tip="编辑模型">
+                                    <i class="fas fa-edit"></i> 编辑
+                                </button>
+                            </form>
+                            <form action="{{ url_for('models.delete_model', model_id=model.id) }}" method="POST" class="inline-block delete-model-form">
+                                <button type="button" class="btn btn-xs btn-outline btn-error tooltip" data-tip="删除模型" 
+                                        onclick="showConfirmationModal(this.closest('form'), '确认删除模型', '您确定要删除模型 <strong>{{ model.display_name | e }}</strong> 吗？此操作无法撤销。', '确认删除', 'btn-error');">
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            </form>
+                        {% else %}
+                            {# For system models, edit and delete are disabled visually #}
+                            <form method="GET" class="inline-block">
+                                <button type="submit" class="btn btn-xs btn-disabled tooltip" data-tip="系统模型无法编辑" disabled>
+                                    <i class="fas fa-edit"></i> 编辑
+                                </button>
+                            </form>
+                             <form method="POST" class="inline-block">
+                                <button type="submit" class="btn btn-xs btn-disabled tooltip" data-tip="系统模型无法删除" disabled>
+                                    <i class="fas fa-trash"></i> 删除
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="alert alert-info shadow-md">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>目前没有可用的模型。您可以添加一个自定义模型。</span>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }} {# Includes the base modal script #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // No specific JS needed here now as it's handled by onclick and base.html script
+        });
+    </script>
+{% endblock %} 

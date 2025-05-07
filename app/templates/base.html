@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="forest">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title if title else '大模型评测平台' }}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.1/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script> {# DaisyUI requires Tailwind #}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Minimal global styles if any - DaisyUI handles most component styling */
+        body {
+            @apply font-sans;
+        }
+        /* Flash message custom styling if needed, or map to DaisyUI alerts more directly */
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col">
+    <div class="navbar bg-base-200 shadow-md">
+        <div class="container mx-auto">
+            <div class="flex-1">
+                <a href="{{ url_for('main.index') }}" class="btn btn-ghost text-xl whitespace-nowrap">
+                    <i class="fas fa-brain mr-1"></i> 大模型评测平台
+                </a>
+            </div>
+            <div class="flex-none">
+                <ul class="menu menu-horizontal px-1">
+                    {% if current_user.is_authenticated %}
+                        <li><a href="{{ url_for('main.dashboard') }}">仪表盘</a></li>
+                        <li><a href="{{ url_for('models.list_models') }}">模型管理</a></li>
+                        <li>
+                            <details id="chat-dropdown-details">
+                                <summary class="whitespace-nowrap">对话</summary>
+                                <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">
+                                    <li><a href="{{ url_for('chat.new_chat_session') }}">开始新对话</a></li>
+                                    <li><a href="{{ url_for('chat.chat_history_list') }}">对话历史</a></li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li>
+                            <details id="user-dropdown-details">
+                                <summary class="whitespace-nowrap">{{ current_user.username }}</summary>
+                                <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">
+                                    <li><a href="{{ url_for('auth.change_password') }}">修改密码</a></li>
+                                    <li><a href="{{ url_for('auth.logout') }}">退出登录</a></li>
+                                </ul>
+                            </details>
+                        </li>
+                    {% else %}
+                        <li><a href="{{ url_for('auth.login') }}" class="btn btn-ghost">登录</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow container mx-auto mt-8 px-4 md:px-6 py-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="space-y-2 mb-6">
+                {% for category, message in messages %}
+                    {# Map categories to DaisyUI alert types #}
+                    {% set alert_type = 'alert-info' %}
+                    {% if category == 'success' %}
+                        {% set alert_type = 'alert-success' %}
+                    {% elif category == 'danger' %}
+                        {% set alert_type = 'alert-error' %}
+                    {% elif category == 'warning' %}
+                        {% set alert_type = 'alert-warning' %}
+                    {% endif %}
+                    <div role="alert" class="alert {{ alert_type }} shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            {% if category == 'success' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            {% elif category == 'danger' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            {% elif category == 'warning' %}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            {% else %}{# info #}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            {% endif %}
+                        </svg>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer footer-center p-4 bg-base-200 text-base-content mt-10">
+        <aside>
+            <p>&copy; {{ g.year if g and g.year else '2024' }} 大模型评测平台. 保留所有权利.</p>
+        </aside>
+    </footer>
+
+    {# General Confirmation Modal #}
+    <dialog id="global_confirmation_modal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg" id="confirmation_modal_title">请确认操作</h3>
+            <p class="py-4" id="confirmation_modal_message">您确定要执行此操作吗？此操作通常无法撤销。</p>
+            <div class="modal-action">
+                <button class="btn btn-sm" id="confirmation_modal_cancel_btn">取消</button>
+                <button class="btn btn-sm btn-error" id="confirmation_modal_confirm_btn">确认</button> {# btn-error or btn-primary based on action #}
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>关闭</button>
+        </form>
+    </dialog>
+
+    {% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const detailsElements = document.querySelectorAll('details[id*="dropdown-details"]');
+            
+            document.addEventListener('click', function (event) {
+                detailsElements.forEach(function (details) {
+                    if (!details.contains(event.target)) {
+                        details.removeAttribute('open');
+                    }
+                });
+            });
+    
+            // Global Confirmation Modal Logic
+            const confirmationModal = document.getElementById('global_confirmation_modal');
+            const modalTitle = document.getElementById('confirmation_modal_title');
+            const modalMessage = document.getElementById('confirmation_modal_message');
+            const confirmBtn = document.getElementById('confirmation_modal_confirm_btn');
+            const cancelBtn = document.getElementById('confirmation_modal_cancel_btn');
+            let formToSubmit = null;
+            let confirmCallback = null;
+
+            window.showConfirmationModal = function(formElement, title, message, confirmButtonText = '确认', confirmButtonClass = 'btn-error') {
+                formToSubmit = formElement; // Store the form that should be submitted
+                confirmCallback = null; // Reset callback
+                modalTitle.textContent = title;
+                modalMessage.innerHTML = message; // Use innerHTML if message contains HTML
+                confirmBtn.textContent = confirmButtonText;
+                confirmBtn.className = `btn btn-sm ${confirmButtonClass}`; // Reset and apply class
+                if (confirmationModal.showModal) {
+                    confirmationModal.showModal();
+                } else {
+                    // Fallback for older browsers or if not using <dialog> polyfill
+                    confirmationModal.style.display = 'block'; 
+                }
+            };
+            
+            window.showGenericConfirm = function(callback, title, message, confirmButtonText = '确认', confirmButtonClass = 'btn-primary') {
+                formToSubmit = null; // Not submitting a form directly
+                confirmCallback = callback; // Store the callback function
+                modalTitle.textContent = title;
+                modalMessage.innerHTML = message;
+                confirmBtn.textContent = confirmButtonText;
+                confirmBtn.className = `btn btn-sm ${confirmButtonClass}`;
+                cancelBtn.style.display = 'inline-flex'; // 确保取消按钮可见
+                if (confirmationModal.showModal) {
+                    confirmationModal.showModal();
+                } else {
+                    confirmationModal.style.display = 'block';
+                }
+            };
+
+            // 新增: 用于显示 DaisyUI 风格的简单警告弹窗
+            window.showDaisyUIAlert = function(title, message) {
+                formToSubmit = null;
+                confirmCallback = null; // 警告弹窗通常不需要复杂的回调，点击确认即关闭
+                modalTitle.textContent = title;
+                modalMessage.innerHTML = message; // 允许消息中包含简单的HTML
+                confirmBtn.textContent = '好的'; // 将确认按钮文本设为"好的"
+                confirmBtn.className = 'btn btn-sm btn-primary'; // 可以使用主要按钮样式
+                cancelBtn.style.display = 'none'; // 隐藏取消按钮
+
+                if (confirmationModal.showModal) {
+                    confirmationModal.showModal();
+                } else {
+                    confirmationModal.style.display = 'block';
+                }
+            };
+
+            confirmBtn.addEventListener('click', function() {
+                if (formToSubmit) {
+                    formToSubmit.submit();
+                } else if (typeof confirmCallback === 'function') {
+                    confirmCallback();
+                }
+                if (confirmationModal.close) confirmationModal.close();
+                else confirmationModal.style.display = 'none';
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                if (confirmationModal.close) confirmationModal.close();
+                else confirmationModal.style.display = 'none';
+            });
+            
+            // Close modal if click on backdrop (for <dialog> element)
+            confirmationModal.addEventListener('click', function(event) {
+                if (event.target === confirmationModal) {
+                    if (confirmationModal.close) confirmationModal.close();
+                    else confirmationModal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+    {% endblock %}
+</body>
+</html> 

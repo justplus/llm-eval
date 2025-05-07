@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="prose max-w-none mb-6">
+    <h1>{{ title }}</h1>
+    <p>查看您过往的对话记录。您可以点击任意对话继续，或删除不再需要的记录。</p>
+</div>
+
+<div class="mb-6 text-right">
+    <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-primary"><i class="fas fa-plus mr-2"></i>开始新对话</a>
+</div>
+
+{% if sessions %}
+    <div class="space-y-4">
+        {% for session in sessions %}
+        <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+            <div class="card-body">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="card-title mb-1">
+                            <a href="{{ url_for('chat.view_chat_session', session_id=session.id) }}" class="link link-hover">
+                                {{ session.session_name if session.session_name else '对话 ' ~ session.id }}
+                            </a>
+                        </h2>
+                        <p class="text-xs text-base-content/70">
+                            最后更新于: {{ session.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                            <span class="mx-1">|</span>
+                            创建于: {{ session.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </p>
+                        {% set message_count = session.messages.count() %}
+                        <p class="text-sm mt-2">包含 {{ message_count }} 条消息。</p>
+                    </div>
+                    <div class="card-actions justify-end mt-4">
+                        <a href="{{ url_for('chat.view_chat_session', session_id=session.id) }}" class="btn btn-sm btn-outline btn-primary"><i class="fas fa-eye mr-1"></i> 查看</a>
+                        <form action="{{ url_for('chat.delete_session_route', session_id=session.id) }}" method="POST" class="inline-block delete-session-form">
+                            <button type="button" class="btn btn-sm btn-outline btn-error" 
+                                    data-session-display-name="{{ (session.session_name if session.session_name else ('对话 ' ~ session.id)) | e }}"
+                                    onclick="const sessionName = this.dataset.sessionDisplayName; const message = `您确定要删除对话 <strong>${sessionName}</strong> 吗？此操作无法撤销。`; showConfirmationModal(this.closest('form'), '确认删除对话', message, '确认删除', 'btn-error');">
+                                <i class="fas fa-trash-alt mr-1"></i> 删除
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info shadow-md">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>您还没有任何对话历史。</span>
+        <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-sm btn-primary ml-4">开始一个新对话</a>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // No specific JS needed here now as it's handled by onclick and base.html script
+        });
+    </script>
+{% endblock %} 

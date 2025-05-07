@@ -1,0 +1,52 @@
+{% macro render_field(field, type='text', class='', placeholder='', required=False, label_visible=True, html_attrs=None) %}
+    <div class="form-control w-full {{ 'mb-4' if not field.false_values else '' }}">
+        {% if label_visible %}
+            <label class="label" {% if field.id %}for="{{ field.id }}"{% endif %}>
+                <span class="label-text">{{ field.label.text }}{% if required %}<span class="text-error">*</span>{% endif %}</span>
+            </label>
+        {% endif %}
+        {% set common_attrs = html_attrs if html_attrs is not none else {} %}
+        {% if required %}
+            {% set common_attrs = dict(common_attrs, required='required') %}
+        {% endif %}
+
+        {% if field.type == 'TextAreaField' %}
+            {{ field(class='textarea textarea-bordered h-24 ' + class, placeholder=placeholder, **common_attrs) }}
+        {% elif field.type == 'FloatField' %}
+             {{ field(class='input input-bordered w-full ' + class, type='number', placeholder=placeholder, **common_attrs) }}
+        {% else %}
+            {{ field(class='input input-bordered w-full ' + class, type=type, placeholder=placeholder, **common_attrs) }}
+        {% endif %}
+        {% if field.errors %}
+            <label class="label">
+                <span class="label-text-alt text-error">
+                    {% for error in field.errors %}
+                        {{ error }}<br>
+                    {% endfor %}
+                </span>
+            </label>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+{% macro render_submit_button(field, class='btn-primary', text=None) %}
+    {{ field(class='btn ' + class + ' w-full', value=(text if text else field.label.text)) }}
+{% endmacro %}
+
+{% macro render_checkbox_field(field, label_text=None, class='') %}
+    <div class="form-control">
+        <label class="label cursor-pointer justify-start">
+            {{ field(class='checkbox checkbox-primary ' + class) }}
+            <span class="label-text ml-2">{{ label_text if label_text else field.label.text }}</span>
+        </label>
+        {% if field.errors %}
+            <label class="label">
+                <span class="label-text-alt text-error">
+                    {% for error in field.errors %}
+                        {{ error }}<br>
+                    {% endfor %}
+                </span>
+            </label>
+        {% endif %}
+    </div>
+{% endmacro %} 
