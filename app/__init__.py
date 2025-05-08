@@ -1,4 +1,4 @@
-from flask import Flask, g
+from flask import Flask, g, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -37,8 +37,17 @@ def create_app(config_class=Config):
     from app.routes.chat_routes import bp as chat_bp
     app.register_blueprint(chat_bp)
 
+    # 注册新的数据集蓝图
+    from app.routes.dataset_routes import bp as datasets_bp
+    app.register_blueprint(datasets_bp)
+
     with app.app_context():
         from app.services import model_service
         model_service.sync_system_models()
+
+    @app.errorhandler(403)
+    def forbidden_error(error):
+        flash("您的会话已过期或无权访问此页面，请重新登录。", "warning")
+        return redirect(url_for('auth.login'))
 
     return app 

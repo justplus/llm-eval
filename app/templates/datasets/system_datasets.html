@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}系统数据集 - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* 为卡片描述设置最大高度和溢出处理 */
+  .dataset-description {
+    max-height: 6rem; /* 约等于4行文本，可以根据实际情况调整 */
+    overflow-y: auto;
+    line-height: 1.5rem;
+  }
+  .card-compact .card-body {
+      padding: 1rem; /* 调整内边距以获得更紧凑的卡片 */
+  }
+  .tabs-container {
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    width: 100%; /* 容器占据全部可用宽度 */
+  }
+  .tabs-scrollable {
+    width: 80%; /* Tab区域占据80%宽度 */
+    overflow-x: auto; /* 如果tabs过多则允许横向滚动 */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .tabs-scrollable::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Opera */
+  }
+  /* Ensure the .tabs element itself (e.g., .tabs-boxed) inside .tabs-scrollable doesn't wrap its children */
+  .tabs-scrollable > .tabs {
+      display: flex; /* Ensure it's a flex container */
+      flex-wrap: nowrap !important; /* Prevent tabs from wrapping */
+      width: max-content; /* Allow container to be as wide as all tabs combined */
+  }
+  .tabs.tabs-boxed .tab {
+      padding-left: 0.75rem; /* 调整tab内边距使其更紧凑 */
+      padding-right: 0.75rem;
+  }
+  .search-container {
+    width: 20%; /* 搜索区域占据20%宽度 */
+    padding-left: 1rem; /* Add some spacing between tabs and search bar if gap is removed from parent */
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-3xl font-bold">评测数据集</h1>
+            <a href="{{ url_for('datasets.add_custom_dataset') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2"></i>添加自定义数据集</a>
+        </div>
+        
+        <!-- Tabs 和搜索框容器 -->
+        <div class="tabs-container mb-6">
+            <!-- Tabs 区域 -->
+            <div class="tabs-scrollable">
+                <div class="tabs tabs-boxed">
+                    <a href="{{ url_for('datasets.system_datasets_list', category='全部') }}" 
+                       class="tab {{ 'tab-active' if selected_category == '全部' or not selected_category else '' }}">全部</a>
+                    {% for cat in all_categories %}
+                    <a href="{{ url_for('datasets.system_datasets_list', category=cat.name) }}" 
+                       class="tab {{ 'tab-active' if selected_category == cat.name else '' }}">{{ cat.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- 搜索框区域 -->
+            <div class="search-container form-control">
+                <div class="input-group input-group-sm items-center">
+                    <input type="text" placeholder="搜索评测集…" class="input input-bordered input-sm w-full" />
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 数据集卡片列表 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% if datasets %}
+            {% for dataset in datasets %}
+            <div class="card card-compact bg-base-100 shadow-xl border border-base-300 relative">
+                {# {% if dataset.is_new %} #} {# is_new 字段已移除 #}
+                {# <div class="absolute top-2 right-2 badge badge-secondary badge-outline">New</div> #}
+                {# {% endif %} #}
+                <div class="card-body">
+                    <h2 class="card-title text-xl">
+                        {{ dataset.name }}
+                    </h2>
+                    <div class="my-1">
+                        {% for category_obj in dataset.categories %}
+                        <span class="badge badge-ghost badge-sm mr-1 mb-1">{{ category_obj.name }}</span>
+                        {% endfor %}
+                    </div>
+                    <p class="text-sm text-base-content/70 dataset-description">{{ dataset.description }}</p>
+                    
+                    <div class="mt-3 pt-3 border-t border-base-300/50 flex justify-between items-center text-xs text-base-content/60">
+                        <div class="flex items-center">
+                            <!-- 来源图标 (示例) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span>{{ dataset.source if dataset.source else 'N/A' }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            {# views 字段已移除 #}
+                            {# <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                               <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-.001.009-.002.018-.003.027A16.996 16.996 0 0112 19c-4.478 0-8.268-2.943-9.542-7 .001-.009.002-.018.003-.027z" />
+                            </svg>
+                            <span class="mr-3">{{ dataset.views if dataset.views != 'N/A' else '-' }}</span> #}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>{{ dataset.publish_date if dataset.publish_date else 'N/A' }}</span>
+                        </div>
+                    </div>
+                    <div class="card-actions justify-end mt-2">
+                        {# sample_data_url 已移除, sample_data 是 JSON 字段 #}
+                        <button class="btn btn-xs btn-outline btn-primary" 
+                                onclick="showSampleDataModal(this)" 
+                                data-sample-data='{{ dataset.sample_data | tojson | safe if dataset.sample_data else "[]" }}'
+                                {% if not dataset.sample_data %}disabled{% endif %}>
+                            查看样例
+                        </button>
+                        <a href="{{ dataset.download_url if dataset.download_url else '#' }}" 
+                           class="btn btn-xs btn-outline btn-secondary" 
+                           {% if not dataset.download_url or dataset.download_url == '#' %}onclick="alert('下载功能暂未开放'); return false;"{% endif %}>
+                           下载数据
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="col-span-1 md:col-span-2 text-center">没有找到符合条件的系统数据集。</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 样例数据模态框 -->
+<div id="sampleDataModal" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl">
+    <h3 class="font-bold text-lg mb-4">样例数据</h3>
+    <div id="sampleDataContent" class="whitespace-pre-wrap bg-base-200 p-4 rounded-md max-h-96 overflow-y-auto">
+      <!-- 样例数据将在这里显示 -->
+    </div>
+    <div class="modal-action">
+      <button class="btn" onclick="document.getElementById('sampleDataModal').classList.remove('modal-open');">关闭</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function showSampleDataModal(button) {
+    const sampleDataString = button.dataset.sampleData;
+    const sampleDataContentElement = document.getElementById('sampleDataContent');
+    const modal = document.getElementById('sampleDataModal');
+    try {
+        const sampleData = JSON.parse(sampleDataString);
+        if (sampleData && sampleData.length > 0) {
+            // 格式化为JSON字符串以便美观显示，或者可以自定义渲染逻辑
+            sampleDataContentElement.textContent = JSON.stringify(sampleData, null, 2); 
+        } else {
+            sampleDataContentElement.textContent = '暂无样例数据。';
+        }
+    } catch (e) {
+        sampleDataContentElement.textContent = '无法解析样例数据。';
+        console.error('Error parsing sample data:', e);
+    }
+    modal.classList.add('modal-open');
+}
+
+// 点击模态框外部关闭 (DaisyUI 默认行为，但可以加强)
+const modal = document.getElementById('sampleDataModal');
+modal.addEventListener('click', function(event) {
+  if (event.target === modal) {
+    modal.classList.remove('modal-open');
+  }
+});
+
+</script>
+{% endblock %} 

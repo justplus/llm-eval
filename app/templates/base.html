@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ title if title else '大模型评测平台' }}{% endblock %}</title>
+    <title>{% block title %}{{ title if title else '大模型评估平台' }}{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.1/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script> {# DaisyUI requires Tailwind #}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -21,7 +21,7 @@
         <div class="container mx-auto">
             <div class="flex-1">
                 <a href="{{ url_for('main.index') }}" class="btn btn-ghost text-xl whitespace-nowrap">
-                    <i class="fas fa-brain mr-1"></i> 大模型评测平台
+                    <i class="fas fa-brain mr-1"></i> 大模型评估平台
                 </a>
             </div>
             <div class="flex-none">
@@ -38,6 +38,7 @@
                                 </ul>
                             </details>
                         </li>
+                        <li><a href="{{ url_for('datasets.system_datasets_list') }}">测试集</a></li>
                         <li>
                             <details id="user-dropdown-details">
                                 <summary class="whitespace-nowrap">{{ current_user.username }}</summary>
@@ -93,7 +94,7 @@
 
     <footer class="footer footer-center p-4 bg-base-200 text-base-content mt-10">
         <aside>
-            <p>&copy; {{ g.year if g and g.year else '2024' }} 大模型评测平台. 保留所有权利.</p>
+            <p>&copy; {{ g.year if g and g.year else '2025' }}大模型评估平台. 保留所有权利.</p>
         </aside>
     </footer>
 

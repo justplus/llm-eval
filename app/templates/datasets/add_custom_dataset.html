@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_form_helpers.html" as forms %}
+
+{% block title %}添加自定义数据集 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8">
+    <div class="prose max-w-none mb-6">
+        <h1>添加自定义数据集</h1>
+        <p>请填写以下信息来创建新的自定义数据集。确保信息准确无误。</p>
+    </div>
+
+    <div class="card bg-base-200 shadow-xl">
+        <form method="POST" novalidate class="card-body space-y-4" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+
+            {{ forms.render_field(form.name, placeholder='例如：医学问答数据集', required=True) }}
+            
+            {{ forms.render_field(form.description, placeholder='详细描述数据集的内容、目的、结构等信息。', html_attrs={'rows': '4'}) }}
+            
+            <div class="form-control w-full">
+                <label class="label">
+                    <span class="label-text">{{ form.categories.label.text }}</span>
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border border-base-300 rounded-md max-h-48 overflow-y-auto">
+                    {% for subfield in form.categories %}
+                    <label class="label cursor-pointer justify-start">
+                        {{ subfield(class='checkbox checkbox-sm checkbox-primary') }}
+                        <span class="label-text ml-2">{{ subfield.label.text }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% if form.categories.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">
+                            {% for error in form.categories.errors %}{{ error }}<br>{% endfor %}
+                        </span>
+                    </label>
+                {% endif %}
+                {% if form.categories.description %}
+                    <label class="label pt-0">
+                        <span class="label-text-alt">{{ form.categories.description }}</span>
+                    </label>
+                {% endif %}
+            </div>
+            
+            {{ forms.render_field(form.dataset_file, type='file') }}
+
+            <div class="form-control w-full">
+                <label class="label" for="{{ form.visibility.id }}">
+                    <span class="label-text">{{ form.visibility.label.text }}<span class="text-error">*</span></span>
+                </label>
+                {{ form.visibility(class="select select-bordered w-full") }}
+                {% if form.visibility.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">
+                            {% for error in form.visibility.errors %}{{ error }}<br>{% endfor %}
+                        </span>
+                    </label>
+                {% endif %}
+                 {% if form.visibility.description %}
+                    <label class="label pt-0">
+                        <span class="label-text-alt">{{ form.visibility.description }}</span>
+                    </label>
+                {% endif %}
+            </div>
+
+            <div class="card-actions justify-end pt-4">
+                <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-ghost">取消</a>
+                {{ forms.render_submit_button(form.submit, class='btn-primary') }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

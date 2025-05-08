@@ -51,13 +51,13 @@
         <!-- 占位卡片 - 测试集管理 (未来迭代) -->
         <div class="card bg-base-100 shadow-xl opacity-70">
              <figure class="px-10 pt-10">
-                <i class="fas fa-vials text-5xl text-base-content opacity-50"></i>
+                <i class="fas fa-vials text-5xl text-secondary"></i>
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">测试集管理 <span class="badge badge-ghost">未来</span></h2>
                 <p>管理标准测试集和自定义测试集。</p>
                 <div class="card-actions">
-                    <button class="btn btn-disabled"><i class="fas fa-lock mr-1"></i> 即将推出</button>
+                     <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-secondary"><i class="fas fa-arrow-right mr-1"></i> 测试集管理</a>
                 </div>
             </div>
         </div>

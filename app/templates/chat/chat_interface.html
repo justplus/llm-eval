@@ -190,7 +190,7 @@
 {{ super() }} {# Includes base modal and other scripts #}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    marked.setOptions({ gfm: true }); // 设置 GFM 模式
+    marked.setOptions({ gfm: true, breaks: true }); // MODIFIED
 
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
@@ -204,11 +204,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const modelPanelsContainer = document.getElementById('model-config-panels-container');
     const addModelBtn = document.getElementById('add-model-panel-btn');
     const MAX_MODELS = 3;
-    let modelPanelCount = 0; // Start at 0, will be incremented for the first panel
+    let modelPanelCount = 0; 
     const sessionId = messagesContainer.dataset.sessionId;
     const isModelPreselected = messagesContainer.dataset.isModelPreselected === 'true'; 
     const hasSavedConfigs = messagesContainer.dataset.hasSavedConfigs === 'true';
-    let assistantRawMarkdownHolder = '';
+    let assistantRawMarkdownHolder = ''; 
+    let currentAssistantMessageBubble = null; 
+    let currentModelNameForTyping = null;
+
+    // NEW: Process initially rendered messages by Jinja2
+    const initialMessageBubbles = messagesContainer.querySelectorAll('.chat-message .chat-bubble:not(#typing-indicator-container .chat-bubble)');
+    initialMessageBubbles.forEach(bubble => {
+        const rawMarkdown = bubble.innerHTML;
+        bubble.innerHTML = marked.parse(rawMarkdown.trim());
+    });
     
     // 保存模型配置
     async function saveModelConfigs() {

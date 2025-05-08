@@ -2,6 +2,7 @@ from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
+from sqlalchemy.dialects.mysql import JSON # 如果是MySQL，或者其他数据库的JSON类型
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -81,3 +82,43 @@ class ChatMessage(db.Model):
 
     def __repr__(self):
         return f'<ChatMessage {self.id} in Session {self.session_id} by {self.role}>' 
+
+# 用于 SystemDataset 和 DatasetCategory 的多对多关联表
+system_dataset_categories_association = db.Table('system_dataset_categories',
+    db.Column('system_dataset_id', db.Integer, db.ForeignKey('system_datasets.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('dataset_categories.id'), primary_key=True)
+)
+
+class DatasetCategory(db.Model):
+    __tablename__ = 'dataset_categories'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True) # 分类名称
+
+    # 反向关系，方便从 Category 查找到所有相关的 SystemDataset
+    # datasets = db.relationship("SystemDataset", secondary=system_dataset_categories_association, back_populates="categories")
+
+    def __repr__(self):
+        return f'<DatasetCategory {self.name}>'
+
+class SystemDataset(db.Model):
+    __tablename__ = 'system_datasets'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True) # 数据集名称
+    description = db.Column(db.Text, nullable=True) # 描述
+    publish_date = db.Column(db.String(50), nullable=True) # 发布时间
+    source = db.Column(db.String(100), nullable=True) # 来源
+    download_url = db.Column(db.String(255), nullable=True) # 下载地址
+    sample_data = db.Column(db.JSON, nullable=True) # 存储50条样例数据 (假设数据库支持JSON，否则用db.Text)
+    
+    # 新增字段
+    dataset_type = db.Column(db.String(50), nullable=False, default='系统', server_default='系统') # 数据集类型：系统, 自建
+    visibility = db.Column(db.String(50), nullable=False, default='公开', server_default='公开') # 可见性：公开, 不公开
+    
+    # 多对多关系到 DatasetCategory
+    categories = db.relationship("DatasetCategory", 
+                                 secondary=system_dataset_categories_association,
+                                 backref=db.backref("datasets", lazy="dynamic"),
+                                 lazy="select") # 使用 select 加载模式，避免N+1查询，也可以用 'joined'
+
+    def __repr__(self):
+        return f'<SystemDataset {self.name}>' 

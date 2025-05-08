@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, FloatField
+from flask_wtf.file import FileField, FileAllowed
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, FloatField, SelectField, SelectMultipleField
 from wtforms.validators import DataRequired, Length, EqualTo, Optional, URL, NumberRange
+from wtforms.widgets import ListWidget, CheckboxInput
 
 class LoginForm(FlaskForm):
     username = StringField('用户名', validators=[DataRequired(), Length(min=3, max=64)])
@@ -24,4 +26,26 @@ class AIModelForm(FlaskForm):
     system_prompt = TextAreaField('默认系统提示 (可选)', validators=[Optional()])
     default_temperature = FloatField('默认Temperature (0-2, 可选)', validators=[Optional(), NumberRange(min=0.0, max=2.0)])
     notes = TextAreaField('备注 (可选)', validators=[Optional()])
-    submit = SubmitField('保存模型') 
+    submit = SubmitField('保存模型')
+
+class CustomDatasetForm(FlaskForm):
+    name = StringField('数据集名称', validators=[DataRequired(), Length(max=200)])
+    description = TextAreaField('描述', validators=[Optional(), Length(max=5000)])
+    categories = SelectMultipleField('测评方向', 
+                                   validators=[Optional()], 
+                                   widget=ListWidget(prefix_label=False),
+                                   option_widget=CheckboxInput(),
+                                   description="选择一个或多个测评方向")
+    publish_date = StringField('发布时间', validators=[Optional(), Length(max=50)])
+    source = StringField('来源', validators=[Optional(), Length(max=100)])
+    dataset_file = FileField('数据集文件上传', 
+                             validators=[Optional(), FileAllowed(['zip', 'csv', 'json', 'txt', 'jsonl'], '仅允许上传 ZIP, CSV, JSON, TXT, JSONL 文件!')],
+                             description="上传数据集的压缩文件或数据文件。")
+    sample_data_json = TextAreaField('样例数据 (JSON格式, 最多约50条)', 
+                                   validators=[Optional()], 
+                                   description='请粘贴JSON数组格式的样例数据，例如：[{"question": "Q1", "answer": "A1"}, {"question": "Q2", "answer": "A2"}]')
+    visibility = SelectField('可见性', 
+                             choices=[('公开', '公开'), ('不公开', '不公开')], 
+                             validators=[DataRequired()],
+                             default='公开')
+    submit = SubmitField('保存数据集') 
