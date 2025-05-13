@@ -34,16 +34,18 @@ class CustomDatasetForm(FlaskForm):
     categories = SelectMultipleField('测评方向', 
                                    validators=[Optional()], 
                                    widget=ListWidget(prefix_label=False),
-                                   option_widget=CheckboxInput(),
-                                   description="选择一个或多个测评方向")
+                                   option_widget=CheckboxInput())
     publish_date = StringField('发布时间', validators=[Optional(), Length(max=50)])
     source = StringField('来源', validators=[Optional(), Length(max=100)])
+    format = SelectField('数据集格式', 
+                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)')], 
+                        validators=[DataRequired()],
+                        default='QA')
     dataset_file = FileField('数据集文件上传', 
-                             validators=[Optional(), FileAllowed(['zip', 'csv', 'json', 'txt', 'jsonl'], '仅允许上传 ZIP, CSV, JSON, TXT, JSONL 文件!')],
-                             description="上传数据集的压缩文件或数据文件。")
-    sample_data_json = TextAreaField('样例数据 (JSON格式, 最多约50条)', 
-                                   validators=[Optional()], 
-                                   description='请粘贴JSON数组格式的样例数据，例如：[{"question": "Q1", "answer": "A1"}, {"question": "Q2", "answer": "A2"}]')
+                             validators=[Optional(), FileAllowed(['zip', 'csv', 'json', 'txt', 'jsonl'], '仅允许上传 ZIP, CSV, JSON, TXT, JSONL 文件!')])
+    sample_data_json = TextAreaField('数据集结构信息 (JSON格式)', 
+                                   validators=[Optional()],
+                                   description='请粘贴JSON格式的数据集结构信息，例如：{"子集名称": {"features": {"字段1": {"_type": "Value"}}}}')
     visibility = SelectField('可见性', 
                              choices=[('公开', '公开'), ('不公开', '不公开')], 
                              validators=[DataRequired()],

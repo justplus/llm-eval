@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}{{ evaluation.name }} - 评估详情 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">评估详情</h1>
+        <div class="flex gap-2">
+            <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-outline btn-sm">
+                <i class="fas fa-arrow-left mr-1"></i> 返回列表
+            </a>
+            <button class="btn btn-error btn-sm" onclick="document.getElementById('delete-modal').checked = true">
+                <i class="fas fa-trash mr-1"></i> 删除评估
+            </button>
+        </div>
+    </div>
+
+    <!-- 评估状态卡片 -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <div class="flex justify-between items-center">
+                <h2 class="card-title">{{ evaluation.name }}</h2>
+                <div>
+                    {% if evaluation.status == 'pending' %}
+                        <span class="badge badge-warning badge-lg">待处理</span>
+                    {% elif evaluation.status == 'running' %}
+                        <span class="badge badge-info badge-lg">进行中</span>
+                    {% elif evaluation.status == 'completed' %}
+                        <span class="badge badge-success badge-lg">已完成</span>
+                    {% elif evaluation.status == 'failed' %}
+                        <span class="badge badge-error badge-lg">失败</span>
+                    {% else %}
+                        <span class="badge badge-lg">{{ evaluation.status }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                    <p class="font-semibold">被评估模型</p>
+                    <p class="text-lg">{{ model.display_name }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold">裁判模型</p>
+                    <p class="text-lg">{{ judge_model.display_name }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold">生成参数</p>
+                    <p>温度: {{ evaluation.temperature }}, 最大Token: {{ evaluation.max_tokens }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold">创建时间</p>
+                    <p>{{ evaluation.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                </div>
+            </div>
+            
+            <!-- 进行中的动画 -->
+            {% if evaluation.status == 'running' or evaluation.status == 'pending' %}
+                <div class="mt-4">
+                    <progress class="progress progress-info w-full"></progress>
+                    <p class="text-center mt-2">评估正在进行中，请稍等...页面将自动刷新</p>
+                </div>
+            <!-- 结果摘要 -->
+            {% elif evaluation.status == 'completed' and evaluation.result_summary %}
+                <div class="divider"></div>
+                <h3 class="text-lg font-semibold mb-4">评估结果摘要 (EvalScope)</h3>
+                {% if evaluation.result_summary.get("error") %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        <span>评估摘要加载失败: {{ evaluation.result_summary.error }}
+                            {% if evaluation.result_summary.raw_output %}
+                            <br>原始输出: {{ evaluation.result_summary.raw_output | truncate(200) }}
+                            {% endif %}
+                            {% if evaluation.result_summary.error_detail %}
+                            <br>详情: {{ evaluation.result_summary.error_detail }}
+                            {% endif %}
+                        </span>
+                    </div>
+                {% elif evaluation.result_summary is mapping and evaluation.result_summary %}
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>模型</th>
+                                <th>数据集</th>
+                                <th>指标</th>
+                                <th>子集</th>
+                                <th>数量</th>
+                                <th>得分</th>
+                                <th>类别</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report_key, report_data in evaluation.result_summary.items() %}
+                                {% if report_data.get('metrics') %}
+                                    {% for metric in report_data.metrics %}
+                                        {% if metric.get('categories') %}
+                                            {% for category in metric.categories %}
+                                                {% if category.get('subsets') %}
+                                                    {% for subset in category.subsets %}
+                                                    <tr>
+                                                        <td>{{ report_data.get('model_name', model.display_name) }}</td>
+                                                        <td>{{ report_data.get('dataset_name', report_key.split('/')[0]) }}</td>
+                                                        <td>{{ metric.get('name', 'N/A') }}</td>
+                                                        <td>{{ subset.get('name', 'N/A') }}</td>
+                                                        <td>{{ subset.get('num', 'N/A') }}</td>
+                                                        <td>{{ "%.3f"|format(subset.get('score')) if subset.get('score') is not none else '-' }}</td>
+                                                        <td>
+                                                            {% set cat_name = category.get('name') %}
+                                                            {% if cat_name is iterable and cat_name is not string %}
+                                                                {{ cat_name | join(', ') }}
+                                                            {% else %}
+                                                                {{ cat_name | default('N/A') }}
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                {% else %} 
+                                                    <tr>
+                                                        <td>{{ report_data.get('model_name', model.display_name) }}</td>
+                                                        <td>{{ report_data.get('dataset_name', report_key.split('/')[0]) }}</td>
+                                                        <td>{{ metric.get('name', 'N/A') }}</td>
+                                                        <td>-</td>
+                                                        <td>{{ category.get('num', 'N/A') }}</td>
+                                                        <td>{{ "%.3f"|format(category.get('score')) if category.get('score') is not none else '-' }}</td>
+                                                        <td>
+                                                            {% set cat_name = category.get('name') %}
+                                                            {% if cat_name is iterable and cat_name is not string %}
+                                                                {{ cat_name | join(', ') }}
+                                                            {% else %}
+                                                                {{ cat_name | default('N/A') }}
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% else %} 
+                                            <tr>
+                                                <td>{{ report_data.get('model_name', model.display_name) }}</td>
+                                                <td>{{ report_data.get('dataset_name', report_key.split('/')[0]) }}</td>
+                                                <td>{{ metric.get('name', 'N/A') }}</td>
+                                                <td>-</td>
+                                                <td>{{ metric.get('num', 'N/A') }}</td>
+                                                <td>{{ "%.3f"|format(metric.get('score')) if metric.get('score') is not none else '-' }}</td>
+                                                <td>-</td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% elif report_data.get('name') and report_data.get('score') is not none %}
+                                    <tr>
+                                        <td>{{ report_data.get('model_name', model.display_name) }}</td>
+                                        <td>{{ report_data.get('dataset_name', report_key) }}</td>
+                                        <td>{{ report_data.get('metric_name', 'Overall') }}</td>
+                                        <td>{{ report_data.get('subset_name', '-') }}</td>
+                                        <td>{{ report_data.get('num', 'N/A') }}</td>
+                                        <td>{{ "%.3f"|format(report_data.get('score')) }}</td>
+                                        <td>{{ report_data.get('category_name', 'default') }}</td>
+                                    </tr>
+                                {% else %}
+                                     <tr>
+                                        <td colspan="7" class="text-center text-error-content bg-error bg-opacity-20">
+                                            无法解析报告条目: "{{ report_key }}".<br>
+                                            <span class="text-xs">数据: {{ report_data | tojson | truncate(300) }}</span>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-neutral-content">没有可显示的摘要数据。</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                     <div class="alert alert-info">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>评估已完成，但结果摘要为空或格式不正确。</span>
+                    </div>
+                {% endif %}
+            {% elif evaluation.status == 'failed' %}
+                <div class="alert alert-error mt-4">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>评估失败: {{ evaluation.result_summary.error if evaluation.result_summary and evaluation.result_summary.error else '未知错误' }}</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- 数据集信息 -->
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i class="fas fa-database mr-2"></i> 评估数据集
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="table w-full">
+                    <thead>
+                        <tr>
+                            <th>数据集名称</th>
+                            <th>子数据集</th>
+                            <th>分割</th>
+                            <th>类型</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for info in datasets_info %}
+                            <tr>
+                                <td>{{ info.dataset.name }}</td>
+                                <td>{{ info.subset or '-' }}</td>
+                                <td>{{ info.split or '-' }}</td>
+                                <td>{{ info.dataset.format }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 详细评估结果 -->
+    {% if evaluation.status == 'completed' and results %}
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-list-alt mr-2"></i> 详细评估结果
+                </h2>
+                
+                <div class="space-y-6 mt-4">
+                    {% for result in results %}
+                        <div class="card bg-base-200">
+                            <div class="card-body">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="card-title">问题 #{{ loop.index + (page-1) * per_page }}</h3>
+                                    <div class="badge badge-lg {% if result.score >= 8 %}badge-success{% elif result.score >= 5 %}badge-info{% else %}badge-warning{% endif %}">
+                                        {{ result.score }}/10
+                                    </div>
+                                </div>
+                                
+                                <div class="my-2">
+                                    <p class="font-semibold">问题:</p>
+                                    <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.question }}</div>
+                                </div>
+                                
+                                {% if result.reference_answer %}
+                                    <div class="my-2">
+                                        <p class="font-semibold">参考答案:</p>
+                                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.reference_answer }}</div>
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="my-2">
+                                    <p class="font-semibold">模型回答:</p>
+                                    <div class="p-3 bg-primary bg-opacity-10 rounded-lg mt-1 whitespace-pre-wrap">{{ result.model_answer }}</div>
+                                </div>
+                                
+                                <div class="my-2">
+                                    <p class="font-semibold">裁判评价:</p>
+                                    <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.feedback }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- 分页 -->
+                {% if total_pages > 1 %}
+                    <div class="flex justify-center mt-6">
+                        <div class="btn-group">
+                            {% if page > 1 %}
+                                <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=page-1) }}" class="btn btn-outline">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            {% else %}
+                                <button class="btn btn-outline" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                            {% endif %}
+                            
+                            {% for i in range(1, total_pages + 1) %}
+                                {% if i == page %}
+                                    <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=i) }}" class="btn btn-active">{{ i }}</a>
+                                {% else %}
+                                    <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=i) }}" class="btn btn-outline">{{ i }}</a>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if page < total_pages %}
+                                <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=page+1) }}" class="btn btn-outline">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            {% else %}
+                                <button class="btn btn-outline" disabled>
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% elif evaluation.status == 'completed' and not results %}
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>评估已完成，但没有找到详细结果。</span>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 删除确认模态框 -->
+<input type="checkbox" id="delete-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">确认删除</h3>
+        <p class="py-4">您确定要删除评估 "{{ evaluation.name }}" 吗？此操作无法撤销。</p>
+        <div class="modal-action">
+            <form method="POST" action="{{ url_for('evaluations.delete_evaluation', evaluation_id=evaluation.id) }}">
+                <button type="submit" class="btn btn-error">删除</button>
+            </form>
+            <label for="delete-modal" class="btn btn-outline">取消</label>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // 如果评估正在进行中，自动刷新页面
+{% if evaluation.status == 'running' or evaluation.status == 'pending' %}
+        setTimeout(function() {
+            // 通过API获取当前状态
+            fetch('/evaluations/api/status/{{ evaluation.id }}')
+                .then(response => response.json())
+                .then(data => {
+                    // 如果状态已经改变，刷新页面
+                    if (data.status !== '{{ evaluation.status }}') {
+                        window.location.reload();
+                    } else {
+                        // 否则，继续定时刷新
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 10000);
+                    }
+                })
+                .catch(error => {
+                    console.error('获取评估状态失败:', error);
+                    // 出错后仍然继续定时刷新
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 10000);
+                });
+        }, 5000);
+{% endif %}
+</script>
+{% endblock %} 

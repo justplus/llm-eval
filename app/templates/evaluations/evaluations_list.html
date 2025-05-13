@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}模型评估历史 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">模型评估历史</h1>
+        <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-primary">
+            <i class="fas fa-plus mr-1"></i> 创建新评估
+        </a>
+    </div>
+
+    {% if evaluations %}
+        <div class="overflow-x-auto">
+            <table class="table w-full">
+                <thead>
+                    <tr>
+                        <th>评估名称</th>
+                        <th>被评估模型</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>平均分数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for evaluation in evaluations %}
+                        <tr class="hover">
+                            <td>
+                                <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id) }}" class="font-medium hover:underline">
+                                    {{ evaluation.name }}
+                                </a>
+                            </td>
+                            <td>
+                                {% set model = evaluation.model %}
+                                {% if model %}
+                                    {{ model.display_name }}
+                                {% else %}
+                                    <span class="text-error">模型不存在</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if evaluation.status == 'pending' %}
+                                    <span class="badge badge-warning">待处理</span>
+                                {% elif evaluation.status == 'running' %}
+                                    <span class="badge badge-info">进行中</span>
+                                {% elif evaluation.status == 'completed' %}
+                                    <span class="badge badge-success">已完成</span>
+                                {% elif evaluation.status == 'failed' %}
+                                    <span class="badge badge-error">失败</span>
+                                {% else %}
+                                    <span class="badge">{{ evaluation.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ evaluation.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if evaluation.result_summary and evaluation.result_summary.average_score is defined %}
+                                    <span class="font-semibold">{{ "%.2f"|format(evaluation.result_summary.average_score) }}</span>/10
+                                {% elif evaluation.status == 'failed' %}
+                                    <span class="text-error">评估失败</span>
+                                {% else %}
+                                    <span class="text-base-content/50">尚未完成</span>
+                                {% endif %}
+                            </td>
+                            <td class="flex gap-2">
+                                <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id) }}" class="btn btn-sm btn-outline btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline btn-error" onclick="confirmDelete({{ evaluation.id }}, '{{ evaluation.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        {% if total_pages > 1 %}
+            <div class="flex justify-center mt-6">
+                <div class="btn-group">
+                    {% if page > 1 %}
+                        <a href="{{ url_for('evaluations.evaluations_list', page=page-1) }}" class="btn btn-outline">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <button class="btn btn-outline" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% endif %}
+                    
+                    {% for i in range(1, total_pages + 1) %}
+                        {% if i == page %}
+                            <a href="{{ url_for('evaluations.evaluations_list', page=i) }}" class="btn btn-active">{{ i }}</a>
+                        {% else %}
+                            <a href="{{ url_for('evaluations.evaluations_list', page=i) }}" class="btn btn-outline">{{ i }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page < total_pages %}
+                        <a href="{{ url_for('evaluations.evaluations_list', page=page+1) }}" class="btn btn-outline">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <button class="btn btn-outline" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body text-center">
+                <h2 class="card-title justify-center mb-4">没有评估记录</h2>
+                <p class="mb-6">您还没有创建任何模型评估。通过模型评估可以测试和比较不同模型在各类任务上的表现。</p>
+                <div class="card-actions justify-center">
+                    <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-primary">
+                        <i class="fas fa-plus mr-1"></i> 创建第一个评估
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 删除确认模态框 -->
+<input type="checkbox" id="delete-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">确认删除</h3>
+        <p class="py-4">您确定要删除评估 "<span id="delete-evaluation-name"></span>" 吗？此操作无法撤销。</p>
+        <div class="modal-action">
+            <form id="delete-form" method="POST" action="">
+                <button type="submit" class="btn btn-error">删除</button>
+            </form>
+            <label for="delete-modal" class="btn btn-outline">取消</label>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    function confirmDelete(evaluationId, evaluationName) {
+        document.getElementById('delete-evaluation-name').textContent = evaluationName;
+        document.getElementById('delete-form').action = "{{ url_for('evaluations.delete_evaluation', evaluation_id=0) }}".replace('0', evaluationId);
+        document.getElementById('delete-modal').checked = true;
+    }
+</script>
+{% endblock %} 

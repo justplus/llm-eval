@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}创建模型评估 - {{ super() }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .dataset-card.selected {
+        border: 2px solid var(--p);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">创建模型评估</h1>
+        <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-arrow-left mr-1"></i> 返回评估列表
+        </a>
+    </div>
+
+    <form method="POST" action="{{ url_for('evaluations.create_evaluation') }}">
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-cog mr-2"></i> 基本配置
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 评估名称 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">评估名称 (选填)</span>
+                        </label>
+                        <input type="text" name="evaluation_name" placeholder="为此次评估取个名称 (可选)" class="input input-bordered" />
+                    </div>
+                    
+                    <!-- 被评估模型 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">被评估模型 (自定义模型) *</span>
+                        </label>
+                        <select name="model_id" class="select select-bordered w-full" required>
+                            <option value="">请选择要评估的自定义模型</option>
+                            {% for model in custom_models %}
+                                <option value="{{ model.id }}">{{ model.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- 裁判模型 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">裁判模型 (系统模型) *</span>
+                            <span class="label-text-alt text-info" title="裁判模型将对被评估模型的回答进行评分">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                        </label>
+                        <select name="judge_model_id" class="select select-bordered w-full" required>
+                            <option value="">请选择裁判模型</option>
+                            {% for model in system_models %}
+                                <option value="{{ model.id }}">{{ model.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <h3 class="text-lg font-semibold mb-2">
+                    <i class="fas fa-sliders-h mr-2"></i> 生成参数
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 温度 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">温度 (Temperature)</span>
+                            <span class="label-text-alt" id="temperature-value">0.7</span>
+                        </label>
+                        <input type="range" name="temperature" min="0" max="1" value="0.7" step="0.1" class="range range-primary" 
+                               oninput="document.getElementById('temperature-value').textContent = this.value" />
+                        <div class="w-full flex justify-between text-xs px-2 mt-1">
+                            <span>精确</span>
+                            <span>创意</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 最大Token -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">最大生成Token数</span>
+                        </label>
+                        <select name="max_tokens" class="select select-bordered w-full">
+                            <option value="1024">1024</option>
+                            <option value="2048" selected>2048</option>
+                            <option value="4096">4096</option>
+                            <option value="8192">8192</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-database mr-2"></i> 选择评估数据集
+                </h2>
+                <p class="text-sm text-base-content/70 mb-4">选择一个或多个数据集用于评估模型性能。至少需要选择一个数据集。系统将自动使用数据集的默认配置进行评估。</p>
+                
+                {% if datasets %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {% for dataset in datasets %}
+                            <div class="card bg-base-200 dataset-card hover:bg-base-300 cursor-pointer transition-all"
+                                 onclick="toggleDatasetSelection(this, {{ dataset.id }})">
+                                <div class="card-body p-4">
+                                    <div class="flex justify-between">
+                                        <h3 class="font-semibold">{{ dataset.name }}</h3>
+                                        <div class="form-control">
+                                            <label class="cursor-pointer label py-0">
+                                                <input type="checkbox" name="dataset_{{ dataset.id }}" class="checkbox checkbox-primary checkbox-sm dataset-checkbox" 
+                                                       onchange="event.stopPropagation(); updateDatasetSelection(this, {{ dataset.id }})" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-base-content/70">{{ dataset.description or '无描述' }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>没有可用的测试数据集。请先在测试集管理中添加并启用数据集。</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="flex justify-end">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-play-circle mr-1"></i> 开始评估
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // 切换数据集选择状态
+    function toggleDatasetSelection(cardElement, datasetId) {
+        const checkbox = cardElement.querySelector('.dataset-checkbox');
+        checkbox.checked = !checkbox.checked;
+        updateDatasetSelection(checkbox, datasetId);
+    }
+    
+    // 更新数据集选择状态
+    function updateDatasetSelection(checkbox, datasetId) {
+        const card = checkbox.closest('.dataset-card');
+        if (checkbox.checked) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    }
+</script>
+{% endblock %} 

@@ -4,6 +4,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from .config import Config
 import datetime
+import logging  # 添加logging模块导入
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -15,6 +16,16 @@ login_manager.login_message_category = "info"
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+    
+    # 配置日志级别，确保INFO级别的日志能够显示
+    app.logger.setLevel(logging.INFO)
+    # 如果需要更详细的控制台输出格式，可以添加以下代码
+    if not app.debug:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        stream_handler.setFormatter(formatter)
+        app.logger.addHandler(stream_handler)
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -41,13 +52,17 @@ def create_app(config_class=Config):
     from app.routes.dataset_routes import bp as datasets_bp
     app.register_blueprint(datasets_bp)
 
+    from app.routes.evaluation_routes import bp as evaluations_bp
+    app.register_blueprint(evaluations_bp)
+
     with app.app_context():
         from app.services import model_service
         model_service.sync_system_models()
 
+    # 错误处理器，需要正确缩进到create_app函数内部
     @app.errorhandler(403)
     def forbidden_error(error):
         flash("您的会话已过期或无权访问此页面，请重新登录。", "warning")
         return redirect(url_for('auth.login'))
 
-    return app 
+    return app

@@ -48,13 +48,13 @@
             </div>
         </div>
 
-        <!-- 占位卡片 - 测试集管理 (未来迭代) -->
-        <div class="card bg-base-100 shadow-xl opacity-70">
+        <!-- 测试集管理 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
              <figure class="px-10 pt-10">
                 <i class="fas fa-vials text-5xl text-secondary"></i>
             </figure>
             <div class="card-body items-center text-center">
-                <h2 class="card-title">测试集管理 <span class="badge badge-ghost">未来</span></h2>
+                <h2 class="card-title">测试集管理</h2>
                 <p>管理标准测试集和自定义测试集。</p>
                 <div class="card-actions">
                      <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-secondary"><i class="fas fa-arrow-right mr-1"></i> 测试集管理</a>
@@ -62,16 +62,30 @@
             </div>
         </div>
 
-        <!-- 占位卡片 - 模型评测 (未来迭代) -->
-        <div class="card bg-base-100 shadow-xl opacity-70">
+        <!-- 模型评测 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
             <figure class="px-10 pt-10">
-                <i class="fas fa-chart-line text-5xl text-base-content opacity-50"></i>
+                <i class="fas fa-chart-line text-5xl text-warning"></i>
             </figure>
             <div class="card-body items-center text-center">
-                <h2 class="card-title">模型评测 <span class="badge badge-ghost">未来</span></h2>
-                <p>基于测试集对模型进行批量评测。</p>
+                <h2 class="card-title">模型评估</h2>
+                <p>基于测试集对模型进行批量评估。</p>
                 <div class="card-actions">
-                     <button class="btn btn-disabled"><i class="fas fa-lock mr-1"></i> 即将推出</button>
+                    <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-warning"><i class="fas fa-plus mr-1"></i> 创建评估</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 评估历史 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-award text-5xl text-accent"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">评估历史</h2>
+                <p>查看历史评估结果和详细报告。</p>
+                <div class="card-actions">
+                    <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-accent"><i class="fas fa-arrow-right mr-1"></i> 查看历史</a>
                 </div>
             </div>
         </div>

@@ -49,7 +49,18 @@
     <div class="mb-8">
         <div class="flex justify-between items-center mb-4">
             <h1 class="text-3xl font-bold">评测数据集</h1>
-            <a href="{{ url_for('datasets.add_custom_dataset') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2"></i>添加自定义数据集</a>
+            <div class="flex gap-2">
+                <div class="form-control">
+                    <label class="cursor-pointer label gap-2">
+                        <span class="label-text">显示所有数据集</span>
+                        <input type="checkbox" class="toggle toggle-primary toggle-sm" id="showAllToggle" 
+                               {% if show_all %}checked{% endif %} />
+                    </label>
+                </div>
+                <a href="{{ url_for('datasets.add_custom_dataset') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus mr-2"></i>添加自定义数据集
+                </a>
+            </div>
         </div>
         
         <!-- Tabs 和搜索框容器 -->
@@ -80,10 +91,11 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         {% if datasets %}
             {% for dataset in datasets %}
-            <div class="card card-compact bg-base-100 shadow-xl border border-base-300 relative">
-                {# {% if dataset.is_new %} #} {# is_new 字段已移除 #}
-                {# <div class="absolute top-2 right-2 badge badge-secondary badge-outline">New</div> #}
-                {# {% endif %} #}
+            <div class="card card-compact bg-base-100 shadow-xl border border-base-300 relative
+                        {% if not dataset.is_active %}opacity-70{% endif %}">
+                {% if not dataset.is_active %}
+                <div class="absolute top-2 right-2 badge badge-warning">未启用</div>
+                {% endif %}
                 <div class="card-body">
                     <h2 class="card-title text-xl">
                         {{ dataset.name }}
@@ -92,6 +104,7 @@
                         {% for category_obj in dataset.categories %}
                         <span class="badge badge-ghost badge-sm mr-1 mb-1">{{ category_obj.name }}</span>
                         {% endfor %}
+                        <span class="badge badge-primary badge-sm mr-1 mb-1">{{ dataset.format }}</span>
                     </div>
                     <p class="text-sm text-base-content/70 dataset-description">{{ dataset.description }}</p>
                     
@@ -120,14 +133,16 @@
                         {# sample_data_url 已移除, sample_data 是 JSON 字段 #}
                         <button class="btn btn-xs btn-outline btn-primary" 
                                 onclick="showSampleDataModal(this)" 
-                                data-sample-data='{{ dataset.sample_data | tojson | safe if dataset.sample_data else "[]" }}'
-                                {% if not dataset.sample_data %}disabled{% endif %}>
-                            查看样例
+                                data-sample-data='{{ dataset.dataset_info | tojson | safe if dataset.dataset_info else "{}" }}'
+                                {% if not dataset.dataset_info %}disabled{% endif %}>
+                            查看结构
                         </button>
-                        <a href="{{ dataset.download_url if dataset.download_url else '#' }}" 
+                        <a href="{{ url_for('datasets.preview_dataset', dataset_id=dataset.id) }}" 
                            class="btn btn-xs btn-outline btn-secondary" 
-                           {% if not dataset.download_url or dataset.download_url == '#' %}onclick="alert('下载功能暂未开放'); return false;"{% endif %}>
-                           下载数据
+                           title="使用ModelScope API预览数据，数据集名称来自download_url字段"
+                           {% if not dataset.dataset_info %}onclick="alert('该数据集没有结构信息，无法预览'); return false;"{% endif %}
+                           {% if not dataset.download_url %}onclick="alert('该数据集没有设置download_url字段，无法预览'); return false;"{% endif %}>
+                           预览数据
                         </a>
                     </div>
                 </div>
@@ -142,9 +157,9 @@
 <!-- 样例数据模态框 -->
 <div id="sampleDataModal" class="modal">
   <div class="modal-box w-11/12 max-w-5xl">
-    <h3 class="font-bold text-lg mb-4">样例数据</h3>
+    <h3 class="font-bold text-lg mb-4">数据集结构信息</h3>
     <div id="sampleDataContent" class="whitespace-pre-wrap bg-base-200 p-4 rounded-md max-h-96 overflow-y-auto">
-      <!-- 样例数据将在这里显示 -->
+      <!-- 数据集结构信息将在这里显示 -->
     </div>
     <div class="modal-action">
       <button class="btn" onclick="document.getElementById('sampleDataModal').classList.remove('modal-open');">关闭</button>
@@ -163,15 +178,15 @@ function showSampleDataModal(button) {
     const modal = document.getElementById('sampleDataModal');
     try {
         const sampleData = JSON.parse(sampleDataString);
-        if (sampleData && sampleData.length > 0) {
+        if (sampleData && Object.keys(sampleData).length > 0) {
             // 格式化为JSON字符串以便美观显示，或者可以自定义渲染逻辑
             sampleDataContentElement.textContent = JSON.stringify(sampleData, null, 2); 
         } else {
-            sampleDataContentElement.textContent = '暂无样例数据。';
+            sampleDataContentElement.textContent = '暂无数据集结构信息。';
         }
     } catch (e) {
-        sampleDataContentElement.textContent = '无法解析样例数据。';
-        console.error('Error parsing sample data:', e);
+        sampleDataContentElement.textContent = '无法解析数据集结构信息。';
+        console.error('Error parsing dataset info:', e);
     }
     modal.classList.add('modal-open');
 }
@@ -184,5 +199,52 @@ modal.addEventListener('click', function(event) {
   }
 });
 
+// 切换数据集启用/禁用状态
+function toggleDatasetActive(datasetId, isActive) {
+    // 使用fetch API发送POST请求
+    fetch(`/datasets/api/dataset/${datasetId}/toggle_active`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ is_active: !isActive })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 显示消息
+            alert(data.message);
+            // 刷新页面以显示更新后的状态
+            window.location.reload();
+        } else {
+            alert('操作失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('切换数据集状态时发生错误');
+    });
+}
+
+// 显示所有数据集切换
+document.getElementById('showAllToggle').addEventListener('change', function() {
+    // 构建新的URL
+    const currentUrl = new URL(window.location.href);
+    const params = new URLSearchParams(currentUrl.search);
+    
+    // 更新show_all参数
+    if (this.checked) {
+        params.set('show_all', '1');
+    } else {
+        params.set('show_all', '0');
+    }
+    
+    // 保留category参数
+    currentUrl.search = params.toString();
+    
+    // 跳转到新URL
+    window.location.href = currentUrl.toString();
+});
 </script>
 {% endblock %} 

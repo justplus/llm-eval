@@ -19,6 +19,25 @@
             {{ forms.render_field(form.description, placeholder='详细描述数据集的内容、目的、结构等信息。', html_attrs={'rows': '4'}) }}
             
             <div class="form-control w-full">
+                <label class="label" for="{{ form.format.id }}">
+                    <span class="label-text">{{ form.format.label.text }}<span class="text-error">*</span></span>
+                </label>
+                {{ form.format(class="select select-bordered w-full") }}
+                {% if form.format.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">
+                            {% for error in form.format.errors %}{{ error }}<br>{% endfor %}
+                        </span>
+                    </label>
+                {% endif %}
+                {% if form.format.description %}
+                    <label class="label pt-0">
+                        <span class="label-text-alt">{{ form.format.description }}</span>
+                    </label>
+                {% endif %}
+            </div>
+            
+            <div class="form-control w-full">
                 <label class="label">
                     <span class="label-text">{{ form.categories.label.text }}</span>
                 </label>

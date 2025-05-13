@@ -9,6 +9,7 @@ python-dotenv
 PyMySQL # For MySQL connection
 cryptography # For API key encryption
 openai # For OpenAI compatible API calls
+modelscope # For dataset handling with ModelScope API
 
 # For development (optional, but recommended)
 # Flask-Testing
