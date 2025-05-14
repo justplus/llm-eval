@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, FloatField, SelectField, SelectMultipleField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, FloatField, SelectField, SelectMultipleField, IntegerField
 from wtforms.validators import DataRequired, Length, EqualTo, Optional, URL, NumberRange
 from wtforms.widgets import ListWidget, CheckboxInput
 
@@ -50,4 +50,18 @@ class CustomDatasetForm(FlaskForm):
                              choices=[('公开', '公开'), ('不公开', '不公开')], 
                              validators=[DataRequired()],
                              default='公开')
-    submit = SubmitField('保存数据集') 
+    submit = SubmitField('保存数据集')
+
+class PerformanceEvalForm(FlaskForm):
+    # 模型选择，选项将在路由中动态填充
+    # 这里假设模型名称是唯一的，并且存储为字符串
+    # 如果模型是关联到 AIModel 表，那么应该用 QuerySelectField，但为了简化，先用 SelectField
+    model_name = SelectField('选择模型', validators=[DataRequired()])
+    
+    # 数据集选择，选项将在路由中动态填充
+    # 假设数据集名称是唯一的，并且存储为字符串
+    # 如果数据集是关联到 SystemDataset 表，也应该用 QuerySelectField
+    dataset_name = SelectField('选择数据集', validators=[DataRequired()])
+    concurrency = IntegerField('并发路数', validators=[DataRequired(), NumberRange(min=1, max=100)], default=5)
+    num_requests = IntegerField('总请求数量', validators=[DataRequired(), NumberRange(min=1, max=10000)], default=20)
+    submit = SubmitField('开始评估') 

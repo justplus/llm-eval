@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ super() }} - {{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">{{ title }} (ID: {{ task.id }})</h1>
+        {% if source == 'create' %}
+        <a href="{{ url_for('perf_eval.create') }}" class="btn btn-outline btn-secondary">返回创建页面</a>
+        {% else %}
+        <a href="{{ url_for('perf_eval.history') }}" class="btn btn-outline btn-secondary">返回历史列表</a>
+        {% endif %}
+    </div>
+
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-xl mb-4">评估参数</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p><strong>模型名称:</strong> {{ task.model_name }}</p>
+                <p><strong>数据集:</strong> {{ task.dataset_name }}</p>
+                <p><strong>并发路数:</strong> {{ task.concurrency }}</p>
+                <p><strong>请求数量:</strong> {{ task.num_requests }}</p>
+                <p><strong>状态:</strong> 
+                    <span id="task-status" class="badge 
+                        {% if task.status == 'completed' %}badge-success
+                        {% elif task.status == 'running' %}badge-info
+                        {% elif task.status == 'pending' %}badge-warning
+                        {% elif task.status == 'failed' %}badge-error
+                        {% else %}badge-ghost{% endif %}
+                    ">{{ task.status }}</span>
+                    {% if task.status == 'pending' or task.status == 'running' %}
+                    <span class="loading loading-spinner loading-xs ml-2"></span>
+                    {% endif %}
+                </p>
+                <p><strong>创建时间:</strong> {{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') if task.created_at else 'N/A' }} UTC</p>
+                {% if task.started_at %}
+                <p><strong>开始时间:</strong> {{ task.started_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+                {% endif %}
+                {% if task.completed_at %}
+                <p><strong>完成时间:</strong> {{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+                {% endif %}
+                {% if task.status == 'failed' and task.error_message %}
+                <p class="col-span-full text-error"><strong>错误信息:</strong> {{ task.error_message }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if task.status == 'pending' or task.status == 'running' %}
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-xl mb-4">任务进行中</h2>
+            <div class="flex flex-col items-center justify-center p-8">
+                <div class="radial-progress text-primary" style="--value:70;" role="progressbar">70%</div>
+                <p class="mt-4">性能评估任务正在执行中，请耐心等待。页面将自动刷新显示最新状态。</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if task.raw_output %}
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title text-xl mb-4">性能指标</h2>
+            <div class="mockup-code">
+                <pre><code>{{- task.raw_output -}}</code></pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if task.status == 'pending' or task.status == 'running' %}
+<script>
+    // 每3秒自动刷新页面，直到任务完成
+    setTimeout(function() {
+        window.location.reload();
+    }, 3000);
+</script>
+{% endif %}
+{% endblock %} 

@@ -186,3 +186,35 @@ class ModelEvaluationResult(db.Model):
     
     def __repr__(self):
         return f'<ModelEvaluationResult {self.id} for Evaluation {self.evaluation_id}>' 
+
+# 新增：模型性能评估任务模型
+class PerformanceEvalTask(db.Model):
+    __tablename__ = 'performance_eval_tasks'
+    id = db.Column(db.Integer, primary_key=True)
+    # 关联到AIModel，如果需要直接选择已注册的模型
+    # model_id = db.Column(db.Integer, db.ForeignKey('ai_models.id'), nullable=False) 
+    model_name = db.Column(db.String(150), nullable=False) # 或者直接存储模型名称字符串
+    dataset_name = db.Column(db.String(150), nullable=False) # 数据集名称
+    concurrency = db.Column(db.Integer, nullable=False) # 并发路数
+    num_requests = db.Column(db.Integer, nullable=False) # 请求数量
+    
+    status = db.Column(db.String(50), nullable=False, default='pending') # 任务状态: pending, running, completed, failed
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    started_at = db.Column(db.DateTime, nullable=True) # 任务开始时间
+    completed_at = db.Column(db.DateTime, nullable=True) # 任务完成时间
+    
+    # 存储 evalscope.perf.main.run_perf_benchmark 的输出
+    summary_results = db.Column(db.JSON, nullable=True) # 存储汇总结果 (Benchmarking summary)
+    percentile_results = db.Column(db.JSON, nullable=True) # 存储百分位指标 (Percentile results)
+    raw_output = db.Column(db.Text, nullable=True) # 存储原始的控制台输出，便于调试
+    error_message = db.Column(db.Text, nullable=True) # 如果评估失败，存储错误信息
+
+    # 如果需要关联到用户
+    # user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # user = db.relationship('User', backref=db.backref('performance_eval_tasks', lazy='dynamic'))
+
+    # 如果模型是从 AIModel 表中选择的
+    # ai_model = db.relationship('AIModel', backref=db.backref('performance_eval_tasks', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<PerformanceEvalTask {self.id} for model {self.model_name} on dataset {self.dataset_name}>' 

@@ -142,3 +142,4 @@ cython_debug/
 WechatIMG117.jpg
 
 outputs/
+migrations/

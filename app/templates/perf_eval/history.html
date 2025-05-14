@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}{{ super() }} - {{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-xl mb-4">历史评估任务</h2>
+            {% if history_tasks %}
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>模型名称</th>
+                            <th>数据集</th>
+                            <th>并发数</th>
+                            <th>请求数</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>完成时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in history_tasks %}
+                        <tr>
+                            <td>{{ task.id }}</td>
+                            <td>{{ task.model_name }}</td>
+                            <td>{{ task.dataset_name }}</td>
+                            <td>{{ task.concurrency }}</td>
+                            <td>{{ task.num_requests }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if task.status == 'completed' %}badge-success
+                                    {% elif task.status == 'running' %}badge-info
+                                    {% elif task.status == 'pending' %}badge-warning
+                                    {% elif task.status == 'failed' %}badge-error
+                                    {% else %}badge-ghost{% endif %}
+                                ">{{ task.status }}</span>
+                            </td>
+                            <td>{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') if task.created_at else 'N/A' }} UTC</td>
+                            <td>{{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else 'N/A' }} UTC</td>
+                            <td class="space-x-2">
+                                <a href="{{ url_for('perf_eval.results', task_id=task.id, source='history') }}" class="btn btn-sm btn-outline btn-info">查看结果</a>
+                                <form method="POST" action="{{ url_for('perf_eval.delete_task', task_id=task.id, source='history') }}" style="display:inline;" onsubmit="return confirm('确定要删除这个评估任务吗？');">
+                                    <button type="submit" class="btn btn-sm btn-outline btn-error">删除</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>暂无历史评估任务。</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

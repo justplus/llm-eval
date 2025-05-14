@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}{{ super() }} - {{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">{{ title }}</h1>
+        <a href="{{ url_for('perf_eval.history') }}" class="btn btn-outline btn-secondary">
+            <i class="fas fa-history mr-1"></i> 查看历史评估
+        </a>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title text-xl mb-4">发起新的性能评估</h2>
+            <form method="POST" action="{{ url_for('perf_eval.create') }}" class="space-y-4">
+                {{ form.hidden_tag() }}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 左列 -->
+                    <div>
+                        <div class="form-control w-full">
+                            {{ form.model_name.label(class="label") }}
+                            {{ form.model_name(class="select select-bordered w-full") }}
+                            {% if form.model_name.errors %}
+                                <ul class="text-error text-xs mt-1">
+                                    {% for error in form.model_name.errors %}<li>{{ error }}</li>{% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-control w-full mt-4">
+                            {{ form.concurrency.label(class="label") }}
+                            {{ form.concurrency(class="input input-bordered w-full") }}
+                            {% if form.concurrency.errors %}
+                                <ul class="text-error text-xs mt-1">
+                                    {% for error in form.concurrency.errors %}<li>{{ error }}</li>{% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 右列 -->
+                    <div>
+                        <div class="form-control w-full">
+                            {{ form.dataset_name.label(class="label") }}
+                            {{ form.dataset_name(class="select select-bordered w-full") }}
+                            {% if form.dataset_name.errors %}
+                                <ul class="text-error text-xs mt-1">
+                                    {% for error in form.dataset_name.errors %}<li>{{ error }}</li>{% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-control w-full mt-4">
+                            {{ form.num_requests.label(class="label") }}
+                            {{ form.num_requests(class="input input-bordered w-full") }}
+                            {% if form.num_requests.errors %}
+                                <ul class="text-error text-xs mt-1">
+                                    {% for error in form.num_requests.errors %}<li>{{ error }}</li>{% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-actions justify-start mt-6">
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

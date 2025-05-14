@@ -55,6 +55,10 @@ def create_app(config_class=Config):
     from app.routes.evaluation_routes import bp as evaluations_bp
     app.register_blueprint(evaluations_bp)
 
+    # 注册性能评估蓝图
+    from app.routes.perf_eval import perf_eval_bp
+    app.register_blueprint(perf_eval_bp)
+
     with app.app_context():
         from app.services import model_service
         model_service.sync_system_models()
