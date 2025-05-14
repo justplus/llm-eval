@@ -219,93 +219,34 @@
         </div>
     </div>
     
-    <!-- 详细评估结果 -->
-    {% if evaluation.status == 'completed' and results %}
-        <div class="card bg-base-100 shadow-xl mb-6">
-            <div class="card-body">
+    <!-- 新增：跳转到详细结果页面的按钮 -->
+    {% if evaluation.status == 'completed' %}
+    <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+            <div class="flex justify-between items-center">
                 <h2 class="card-title">
                     <i class="fas fa-list-alt mr-2"></i> 详细评估结果
                 </h2>
-                
-                <div class="space-y-6 mt-4">
-                    {% for result in results %}
-                        <div class="card bg-base-200">
-                            <div class="card-body">
-                                <div class="flex justify-between items-start">
-                                    <h3 class="card-title">问题 #{{ loop.index + (page-1) * per_page }}</h3>
-                                    <div class="badge badge-lg {% if result.score >= 8 %}badge-success{% elif result.score >= 5 %}badge-info{% else %}badge-warning{% endif %}">
-                                        {{ result.score }}/10
-                                    </div>
-                                </div>
-                                
-                                <div class="my-2">
-                                    <p class="font-semibold">问题:</p>
-                                    <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.question }}</div>
-                                </div>
-                                
-                                {% if result.reference_answer %}
-                                    <div class="my-2">
-                                        <p class="font-semibold">参考答案:</p>
-                                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.reference_answer }}</div>
-                                    </div>
-                                {% endif %}
-                                
-                                <div class="my-2">
-                                    <p class="font-semibold">模型回答:</p>
-                                    <div class="p-3 bg-primary bg-opacity-10 rounded-lg mt-1 whitespace-pre-wrap">{{ result.model_answer }}</div>
-                                </div>
-                                
-                                <div class="my-2">
-                                    <p class="font-semibold">裁判评价:</p>
-                                    <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.feedback }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-                
-                <!-- 分页 -->
-                {% if total_pages > 1 %}
-                    <div class="flex justify-center mt-6">
-                        <div class="btn-group">
-                            {% if page > 1 %}
-                                <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=page-1) }}" class="btn btn-outline">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
-                            {% else %}
-                                <button class="btn btn-outline" disabled>
-                                    <i class="fas fa-chevron-left"></i>
-                                </button>
-                            {% endif %}
-                            
-                            {% for i in range(1, total_pages + 1) %}
-                                {% if i == page %}
-                                    <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=i) }}" class="btn btn-active">{{ i }}</a>
-                                {% else %}
-                                    <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=i) }}" class="btn btn-outline">{{ i }}</a>
-                                {% endif %}
-                            {% endfor %}
-                            
-                            {% if page < total_pages %}
-                                <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id, page=page+1) }}" class="btn btn-outline">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            {% else %}
-                                <button class="btn btn-outline" disabled>
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endif %}
+                <a href="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-search-plus mr-1"></i> 查看并搜索详细结果
+                </a>
             </div>
         </div>
-    {% elif evaluation.status == 'completed' and not results %}
-        <div class="alert alert-warning">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span>评估已完成，但没有找到详细结果。</span>
+    </div>
+    {% elif evaluation.status == 'failed' %}
+     <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+             <h2 class="card-title">
+                <i class="fas fa-list-alt mr-2"></i> 详细评估结果
+            </h2>
+            <div class="alert alert-warning mt-4">
+                 <i class="fas fa-exclamation-triangle mr-2"></i>
+                 <span>评估失败，无法查看详细结果。</span>
+            </div>
         </div>
+    </div>
     {% endif %}
+
 </div>
 
 <!-- 删除确认模态框 -->
@@ -327,31 +268,26 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // 如果评估正在进行中，自动刷新页面
-{% if evaluation.status == 'running' or evaluation.status == 'pending' %}
+    const evaluationStatus = '{{ evaluation.status }}';
+    const evaluationId = '{{ evaluation.id }}';
+    const needsRefresh = (evaluationStatus === 'running' || evaluationStatus === 'pending');
+
+    if (needsRefresh) {
         setTimeout(function() {
-            // 通过API获取当前状态
-            fetch('/evaluations/api/status/{{ evaluation.id }}')
+            fetch(`/evaluations/api/status/${evaluationId}`)
                 .then(response => response.json())
                 .then(data => {
-                    // 如果状态已经改变，刷新页面
-                    if (data.status !== '{{ evaluation.status }}') {
+                    if (data.status !== evaluationStatus) {
                         window.location.reload();
                     } else {
-                        // 否则，继续定时刷新
-                        setTimeout(function() {
-                            window.location.reload();
-                        }, 10000);
+                        setTimeout(function() { window.location.reload(); }, 10000); // 继续轮询
                     }
                 })
                 .catch(error => {
                     console.error('获取评估状态失败:', error);
-                    // 出错后仍然继续定时刷新
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 10000);
+                    setTimeout(function() { window.location.reload(); }, 10000); // 出错后也继续轮询
                 });
-        }, 5000);
-{% endif %}
+        }, 5000); // 初始延迟
+    }
 </script>
 {% endblock %} 

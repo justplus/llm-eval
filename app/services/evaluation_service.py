@@ -48,7 +48,8 @@ class EvaluationService:
         datasets: List[Dict[str, Any]],
         temperature: float, 
         max_tokens: int,
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        limit: Optional[int] = None  # 新增 limit 参数
     ) -> Optional[ModelEvaluation]:
         """
         创建一个新的模型评估任务
@@ -65,7 +66,8 @@ class EvaluationService:
                 name=name,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                status='pending'
+                status='pending',
+                limit=limit  # 保存 limit 值
             )
             db.session.add(evaluation)
             db.session.flush()
@@ -171,13 +173,16 @@ class EvaluationService:
                     'temperature': evaluation.temperature,
                     'max_tokens': evaluation.max_tokens,
                 },
-                'limit': 1
-                # 'judge_model_args': { 
-                #     'model_id': judge_model_identifier if judge_model_identifier else '',
-                #     'api_url': judge_api_url if judge_api_url else '',
-                #     'api_key': judge_api_key if judge_api_key else ''
-                # }
+                'judge_model_args': { 
+                    'model_id': judge_model_identifier if judge_model_identifier else '',
+                    'api_url': judge_api_url if judge_api_url else '',
+                    'api_key': judge_api_key if judge_api_key else ''
+                }
             }
+            if evaluation.limit and int(evaluation.limit) > 0:
+                task_cfg['limit'] = int(evaluation.limit)
+
+            print(f'{judge_model_identifier} {judge_api_url} {judge_api_key}')
             current_app.logger.info(f"[评估任务 {evaluation_id}] Evalscope task_cfg: {json.dumps(task_cfg, indent=2)}")
             
             evalscope_final_report = {}
@@ -204,12 +209,11 @@ class EvaluationService:
                     # 确保base_output_dir是绝对路径
                     if not os.path.isabs(base_output_dir):
                         base_output_dir = os.path.abspath(base_output_dir)
+                    t_base_output_dir = base_output_dir
                     for k in os.listdir(base_output_dir):
                         t_base_output_dir = os.path.join(base_output_dir, k)
-                    base_output_dir = t_base_output_dir
 
-                    reviews_base_path = os.path.join(base_output_dir, OUTPUTS_STRUCTURE_REVIEWS_DIR, model_to_evaluate.model_identifier)
-                    print(f'### {reviews_base_path}')
+                    reviews_base_path = os.path.join(t_base_output_dir, OUTPUTS_STRUCTURE_REVIEWS_DIR, model_to_evaluate.model_identifier)
                     if os.path.isdir(reviews_base_path):
                         for review_filename_in_dir in os.listdir(reviews_base_path):
                             review_file_path = os.path.join(reviews_base_path, review_filename_in_dir)
@@ -295,7 +299,7 @@ class EvaluationService:
             finally:
                 if os.path.isdir(base_output_dir):
                     try:
-                        shutil.rmtree(base_output_dir)
+                        # shutil.rmtree(base_output_dir)
                         current_app.logger.info(f"[评估任务 {evaluation_id}] Successfully cleaned up evalscope output directory: {base_output_dir}")
                     except Exception as cleanup_exc:
                         current_app.logger.error(f"[评估任务 {evaluation_id}] Failed to clean up evalscope output directory {base_output_dir}: {str(cleanup_exc)}")
@@ -318,14 +322,26 @@ class EvaluationService:
         return evaluations, total
     
     @staticmethod
-    def get_evaluation_results(evaluation_id: int, user_id: int, page: int = 1, per_page: int = 10) -> Tuple[List[ModelEvaluationResult], int]:
+    def get_evaluation_results(
+        evaluation_id: int, 
+        user_id: int, 
+        page: int = 1, 
+        per_page: int = 10,
+        search_query: Optional[str] = None  # 新增搜索查询参数
+    ) -> Tuple[List[ModelEvaluationResult], int]:
         evaluation = ModelEvaluation.query.get(evaluation_id)
         if not evaluation or evaluation.user_id != user_id:
             return [], 0
         
-        # 现在这个方法可以正常工作了，因为 ModelEvaluationResult 表会被填充数据
-        query = ModelEvaluationResult.query.filter_by(evaluation_id=evaluation_id).order_by(ModelEvaluationResult.id.asc())
+        query = ModelEvaluationResult.query.filter_by(evaluation_id=evaluation_id)
+        
+        # 如果提供了搜索查询，则添加模糊搜索条件
+        if search_query:
+            query = query.filter(ModelEvaluationResult.question.ilike(f"%{search_query}%"))
+            
+        query = query.order_by(ModelEvaluationResult.id.asc())
+        
         total = query.count()
         results = query.paginate(page=page, per_page=per_page, error_out=False).items
-        current_app.logger.info(f"[评估结果查询] EvalID: {evaluation_id}, UserID: {user_id}, Page: {page}, Found: {len(results)}, Total: {total}")
+        current_app.logger.info(f"[评估结果查询] EvalID: {evaluation_id}, UserID: {user_id}, Page: {page}, Search: '{search_query}', Found: {len(results)}, Total: {total}")
         return results, total 

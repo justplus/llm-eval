@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}详细评估结果 - {{ evaluation.name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">详细评估结果: {{ evaluation.name }}</h1>
+        <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id) }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-arrow-left mr-1"></i> 返回评估详情
+        </a>
+    </div>
+
+    <!-- 搜索表单 -->
+    <form method="GET" action="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="mb-6">
+        <div class="join w-full">
+            <input type="text" name="search_query" placeholder="按问题内容搜索..." value="{{ search_query or '''' }}" class="input input-bordered join-item w-full"/>
+            <button type="submit" class="btn btn-primary join-item">
+                <i class="fas fa-search mr-1"></i> 搜索
+            </button>
+            {% if search_query %}
+            <a href="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="btn btn-ghost join-item" title="清除搜索">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+
+    {% if results %}
+        <div class="space-y-6">
+            {% for result in results %}
+            <div class="card bg-base-200 shadow-md">
+                <div class="card-body">
+                    <div class="flex justify-between items-start">
+                        <h3 class="card-title">问题 #{{ loop.index + (page-1) * per_page }}</h3>
+                        {% if result.score is not none %}
+                        <div class="badge badge-lg {% if result.score >= 8 %}badge-success{% elif result.score >= 5 %}badge-info{% else %}badge-warning{% endif %}">
+                            {{ "%.1f"|format(result.score) }}
+                        </div>
+                        {% else %}
+                        <div class="badge badge-lg badge-neutral">无评分</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="my-2">
+                        <p class="font-semibold">问题:</p>
+                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.question }}</div>
+                    </div>
+
+                    {% if result.reference_answer %}
+                    <div class="my-2">
+                        <p class="font-semibold">参考答案:</p>
+                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.reference_answer }}</div>
+                    </div>
+                    {% endif %}
+
+                    <div class="my-2">
+                        <p class="font-semibold">模型回答:</p>
+                        <div class="p-3 bg-primary bg-opacity-10 rounded-lg mt-1 whitespace-pre-wrap">{{ result.model_answer }}</div>
+                    </div>
+
+                    {% if result.feedback %}
+                    <div class="my-2">
+                        <p class="font-semibold">裁判评价:</p>
+                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.feedback }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 分页 -->
+        {% if total_pages > 1 %}
+        <div class="flex justify-center mt-8">
+            <div class="btn-group">
+                {% set base_url_params = {'evaluation_id': evaluation.id} %}
+                {% if search_query %}{% set _ = base_url_params.update({'search_query': search_query}) %}{% endif %}
+
+                {% if page > 1 %}
+                <a href="{{ url_for('evaluations.view_detailed_results', page=page-1, **base_url_params) }}" class="btn btn-outline">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                {% else %}
+                <button class="btn btn-outline" disabled>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                {% endif %}
+
+                {% for i in range(1, total_pages + 1) %}
+                    {% if i == page %}
+                    <a href="{{ url_for('evaluations.view_detailed_results', page=i, **base_url_params) }}" class="btn btn-active">{{ i }}</a>
+                    {% elif i >= page - 2 and i <= page + 2 %}
+                    <a href="{{ url_for('evaluations.view_detailed_results', page=i, **base_url_params) }}" class="btn btn-outline">{{ i }}</a>
+                    {% elif i == page - 3 or i == page + 3 %}
+                     <span class="btn btn-disabled">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <a href="{{ url_for('evaluations.view_detailed_results', page=page+1, **base_url_params) }}" class="btn btn-outline">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% else %}
+                <button class="btn btn-outline" disabled>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle mr-2"></i>
+            <span>没有找到符合条件的详细评估结果。{% if search_query %}请尝试修改搜索词。{% endif %}</span>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

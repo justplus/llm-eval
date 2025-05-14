@@ -40,6 +40,15 @@
                         </li>
                         <li><a href="{{ url_for('datasets.system_datasets_list') }}">测试集</a></li>
                         <li>
+                            <details id="chat-dropdown-details">
+                                <summary class="whitespace-nowrap">评估</summary>
+                                <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">
+                                    <li><a href="{{ url_for('evaluations.create_evaluation') }}">开始评估</a></li>
+                                    <li><a href="{{ url_for('evaluations.evaluations_list') }}">评估历史</a></li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li>
                             <details id="user-dropdown-details">
                                 <summary class="whitespace-nowrap">{{ current_user.username }}</summary>
                                 <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">

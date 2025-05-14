@@ -146,7 +146,7 @@ class ModelEvaluation(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime, nullable=True)
     result_summary = db.Column(db.JSON, nullable=True)  # 存储评估结果摘要
-    
+    limit = db.Column(db.Integer, nullable=True)  # 限制评估数量
     user = db.relationship('User', back_populates='model_evaluations')
     model = db.relationship('AIModel', foreign_keys=[model_id], back_populates='evaluations')
     judge_model = db.relationship('AIModel', foreign_keys=[judge_model_id], back_populates='judge_evaluations')

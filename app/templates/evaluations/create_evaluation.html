@@ -100,6 +100,17 @@
                         </select>
                     </div>
                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control w-full">
+                        <label class="label">
+                            <span class="label-text">限制评估数量 (每个数据集子集)</span>
+                        </label>
+                        <input type="number" name="limit" placeholder="例如: 10 (留空或0表示不限制或默认)" class="input input-bordered w-full" min="0" />
+                        <label class="label">
+                            <span class="label-text-alt">填写一个数字，例如10。如果留空，将是数据集全量参与评估。</span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
         

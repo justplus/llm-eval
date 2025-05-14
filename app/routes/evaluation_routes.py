@@ -1,8 +1,10 @@
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, abort
 from flask_login import login_required, current_user
 from app import db
-from app.models import AIModel, SystemDataset, ModelEvaluation, ModelEvaluationResult
+from app.models import AIModel, SystemDataset, ModelEvaluation, ModelEvaluationResult, ModelEvaluationDataset
 from app.services.evaluation_service import EvaluationService
+import json
+from math import ceil # 用于分页计算
 
 bp = Blueprint('evaluations', __name__, url_prefix='/evaluations')
 
@@ -58,6 +60,7 @@ def create_evaluation():
             temperature = request.form.get('temperature', type=float, default=0.7)
             max_tokens = request.form.get('max_tokens', type=int, default=2048)
             evaluation_name = request.form.get('evaluation_name', '')
+            limit = request.form.get('limit', type=int, default=None)
             
             # 验证模型权限
             target_model = AIModel.query.get(model_id)
@@ -105,7 +108,8 @@ def create_evaluation():
                 datasets=datasets_data, # 传递简化的数据集信息
                 temperature=temperature,
                 max_tokens=max_tokens,
-                name=evaluation_name
+                name=evaluation_name,
+                limit=limit
             )
             
             if evaluation:
@@ -199,7 +203,6 @@ def delete_evaluation(evaluation_id):
         ModelEvaluationResult.query.filter_by(evaluation_id=evaluation_id).delete()
         
         # 删除评估数据集关联 (ModelEvaluationDataset 记录)
-        from app.models import ModelEvaluationDataset # 确保导入
         ModelEvaluationDataset.query.filter_by(evaluation_id=evaluation_id).delete()
         
         # 删除评估记录
@@ -212,4 +215,55 @@ def delete_evaluation(evaluation_id):
         current_app.logger.error(f"删除评估失败: {str(e)}")
         flash(f'删除评估时发生错误: {str(e)}', 'error')
     
-    return redirect(url_for('evaluations.evaluations_list')) 
+    return redirect(url_for('evaluations.evaluations_list'))
+
+@bp.route('/<int:evaluation_id>/results', methods=['GET'])
+@login_required
+def view_detailed_results(evaluation_id):
+    evaluation = EvaluationService.get_evaluation_by_id(evaluation_id, current_user.id)
+    if not evaluation:
+        current_app.logger.warning(f"用户 {current_user.id} 尝试访问不存在的评估 {evaluation_id} 的详细结果。")
+        abort(404)
+
+    if evaluation.status != 'completed':
+        current_app.logger.info(f"用户 {current_user.id} 尝试访问评估 {evaluation_id} 的详细结果，但评估状态为 {evaluation.status}。")
+        flash('详细结果仅在评估成功完成后可用。', 'warning')
+        return redirect(url_for('evaluations.view_evaluation', evaluation_id=evaluation_id))
+
+    page = request.args.get('page', 1, type=int)
+    search_query = request.args.get('search_query', None, type=str)
+    # 从配置或默认设置每页项目数
+    per_page = current_app.config.get('RESULTS_PER_PAGE', 10) 
+
+    results, total_results = EvaluationService.get_evaluation_results(
+        evaluation_id=evaluation.id,
+        user_id=current_user.id,
+        page=page,
+        per_page=per_page,
+        search_query=search_query
+    )
+    
+    if page < 1: # 确保页码至少为1
+        page = 1
+        
+    # 计算总页数，确保即使 total_results 为0时，total_pages 也为0或1（取决于逻辑，这里为0则无分页）
+    if total_results > 0:
+        total_pages = ceil(total_results / per_page)
+    else:
+        total_pages = 0 # 或者 1 如果即使没有结果也想显示 "Page 1 of 1"
+        
+    # 如果请求的页码超出了实际有的页数 (且结果不为空时)，可以重定向到最后一页或第一页
+    # 为简单起见，如果请求页码大于总页数且有结果，可以调整为最后一页
+    # 但当前分页逻辑在模板中处理，这里仅确保 page >= 1
+    # Flask-SQLAlchemy的paginate会自动处理超出范围的页码并返回空列表，所以主要逻辑在模板
+
+    return render_template(
+        'evaluations/detailed_results.html',
+        evaluation=evaluation,
+        results=results,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        search_query=search_query,
+        total_results=total_results 
+    ) 
