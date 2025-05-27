@@ -7,6 +7,9 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-default-fallback-secret-key'
     
+    # 禁用CSRF保护，因为部署在内部网络环境
+    WTF_CSRF_ENABLED = False
+    
     # Default to SQLite if DATABASE_URL is not set, for easier initial setup.
     # However, the requirement is MySQL, so DATABASE_URL should be set in .flaskenv.
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \

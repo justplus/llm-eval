@@ -16,6 +16,7 @@ from app.services.model_service import get_decrypted_api_key
 
 # Evalscope imports
 from evalscope.run import run_task
+from evalscope.constants import JudgeStrategy
 import os
 import shutil
 import json
@@ -132,11 +133,79 @@ class EvaluationService:
 
             eval_dataset_associations = ModelEvaluationDataset.query.filter_by(evaluation_id=evaluation_id).all()
             dataset_names_for_evalscope = []
+            dataset_args = {}  # 新增：为自建数据集准备的dataset_args
+
             # 获取所有参与评估的数据集的名称 (这些是传递给evalscope的名称)
             for assoc in eval_dataset_associations:
                 dataset = SystemDataset.query.get(assoc.dataset_id)
-                if dataset and dataset.name: # dataset.name 应该是 "cvalues" 或 "humaneval" 等
-                    dataset_names_for_evalscope.append(dataset.name) 
+                if dataset:
+                    if dataset.dataset_type == '系统':
+                        # 系统数据集直接使用名称
+                        dataset_names_for_evalscope.append(dataset.name) 
+                    elif dataset.dataset_type == '自建':
+                        # 自建数据集根据格式使用general_mcq或general_qa
+                        if dataset.format == 'MCQ':
+                            if 'general_mcq' not in dataset_names_for_evalscope:
+                                dataset_names_for_evalscope.append('general_mcq')
+                            
+                            # 获取上传目录的路径
+                            dataset_file_path = dataset.download_url
+                            dataset_dir = os.path.dirname(dataset_file_path)
+                            dataset_name = os.path.splitext(os.path.basename(dataset_file_path))[0]
+                            
+                            # 确保有general_mcq的dataset_args
+                            if 'general_mcq' not in dataset_args:
+                                dataset_args['general_mcq'] = {
+                                    "local_path": dataset_dir,
+                                    "subset_list": [dataset_name]
+                                }
+                            else:
+                                # 如果已存在，添加到subset_list
+                                if dataset_name not in dataset_args['general_mcq']['subset_list']:
+                                    dataset_args['general_mcq']['subset_list'].append(dataset_name)
+                            
+                        elif dataset.format == 'QA':
+                            if 'general_qa' not in dataset_names_for_evalscope:
+                                dataset_names_for_evalscope.append('general_qa')
+                            
+                            # 获取上传目录的路径
+                            dataset_file_path = dataset.download_url
+                            dataset_dir = os.path.dirname(dataset_file_path)
+                            dataset_name = os.path.splitext(os.path.basename(dataset_file_path))[0]
+                            
+                            # 确保有general_qa的dataset_args
+                            if 'general_qa' not in dataset_args:
+                                dataset_args['general_qa'] = {
+                                    "local_path": dataset_dir,
+                                    "subset_list": [dataset_name]
+                                }
+                            else:
+                                # 如果已存在，添加到subset_list
+                                if dataset_name not in dataset_args['general_qa']['subset_list']:
+                                    dataset_args['general_qa']['subset_list'].append(dataset_name)
+                        
+                        elif dataset.format == 'FILL':
+                            # 填空题格式也使用general_qa处理，因为它们都是JSONL格式的问答类型
+                            if 'general_intent' not in dataset_names_for_evalscope:
+                                dataset_names_for_evalscope.append('general_intent')
+                            
+                            # 获取上传目录的路径
+                            dataset_file_path = dataset.download_url
+                            dataset_dir = os.path.dirname(dataset_file_path)
+                            dataset_name = os.path.splitext(os.path.basename(dataset_file_path))[0]
+                            
+                            # 确保有general_qa的dataset_args
+                            if 'general_intent' not in dataset_args:
+                                dataset_args['general_intent'] = {
+                                    "local_path": dataset_dir,
+                                    "subset_list": [dataset_name]
+                                }
+                            else:
+                                # 如果已存在，添加到subset_list
+                                if dataset_name not in dataset_args['general_intent']['subset_list']:
+                                    dataset_args['general_intent']['subset_list'].append(dataset_name)
+                        
+                        current_app.logger.info(f"[评估任务 {evaluation_id}] 添加自建数据集 {dataset.name}，格式: {dataset.format}，文件路径: {dataset.download_url}")
                 else:
                     current_app.logger.warning(f"[评估任务 {evaluation_id}] 数据集ID {assoc.dataset_id} 无法找到或名称为空，已跳过。")
             
@@ -160,31 +229,75 @@ class EvaluationService:
 
             decrypted_api_key = get_decrypted_api_key(model_to_evaluate)
 
-            task_cfg = {
-                'eval_type': 'service', 
-                'api_url': model_to_evaluate.api_base_url,
-                'model': model_to_evaluate.model_identifier, 
-                'api_key': decrypted_api_key if decrypted_api_key else 'NO_API_KEY',
-                'datasets': dataset_names_for_evalscope, # 传递顶层数据集名称
-                'stream': True, 
-                'timeout': 12000, 
-                'work_dir': base_output_dir,
-                'generation_config': {
-                    'temperature': evaluation.temperature,
-                    'max_tokens': evaluation.max_tokens,
-                },
-                'judge_model_args': { 
-                    'model_id': judge_model_identifier if judge_model_identifier else '',
-                    'api_url': judge_api_url if judge_api_url else '',
-                    'api_key': judge_api_key if judge_api_key else ''
-                }
-            }
-            if evaluation.limit and int(evaluation.limit) > 0:
-                task_cfg['limit'] = int(evaluation.limit)
-
-            print(f'{judge_model_identifier} {judge_api_url} {judge_api_key}')
-            current_app.logger.info(f"[评估任务 {evaluation_id}] Evalscope task_cfg: {json.dumps(task_cfg, indent=2)}")
+            # 使用TaskConfig格式创建任务配置
+            try:
+                from evalscope import TaskConfig
             
+                task_cfg_args = {
+                    'eval_type': 'service', 
+                    'api_url': model_to_evaluate.api_base_url,
+                    'model': model_to_evaluate.model_identifier, 
+                    'api_key': decrypted_api_key if decrypted_api_key else 'NO_API_KEY',
+                    'datasets': dataset_names_for_evalscope, # 传递顶层数据集名称
+                    'stream': True, 
+                    'timeout': 12000, 
+                    'work_dir': base_output_dir,
+                    'eval_batch_size': 4
+                }
+                if judge_model_identifier:
+                    task_cfg_args['judge_strategy'] = JudgeStrategy.AUTO
+                    task_cfg_args['judge_model_args'] = {
+                        'model_id': judge_model_identifier,
+                        'api_url': judge_api_url if judge_api_url else '',
+                        'api_key': judge_api_key if judge_api_key else ''
+                    }
+                
+                # 如果有自建数据集，添加dataset_args参数
+                if dataset_args:
+                    task_cfg_args['dataset_args'] = dataset_args
+                    current_app.logger.info(f"[评估任务 {evaluation_id}] 添加dataset_args: {json.dumps(dataset_args, indent=2)}")
+                    
+                if evaluation.limit and int(evaluation.limit) > 0:
+                    task_cfg_args['limit'] = int(evaluation.limit)
+
+                # 使用TaskConfig创建配置对象
+                task_cfg = TaskConfig(**task_cfg_args)
+                
+                print(f'{judge_model_identifier} {judge_api_url} {judge_api_key}')
+                current_app.logger.info(f"[评估任务 {evaluation_id}] Evalscope task_cfg: {task_cfg_args}")
+            except ImportError:
+                # 如果无法导入TaskConfig，则回退到使用字典
+                task_cfg = {
+                    'eval_type': 'service', 
+                    'api_url': model_to_evaluate.api_base_url,
+                    'model': model_to_evaluate.model_identifier, 
+                    'api_key': decrypted_api_key if decrypted_api_key else 'NO_API_KEY',
+                    'datasets': dataset_names_for_evalscope, # 传递顶层数据集名称
+                    'stream': True, 
+                    'timeout': 12000, 
+                    'work_dir': base_output_dir,
+                    'generation_config': {
+                        'temperature': evaluation.temperature,
+                        'max_tokens': evaluation.max_tokens,
+                    },
+                    'judge_model_args': { 
+                        'model_id': judge_model_identifier if judge_model_identifier else '',
+                        'api_url': judge_api_url if judge_api_url else '',
+                        'api_key': judge_api_key if judge_api_key else ''
+                    }
+                }
+                
+                # 如果有自建数据集，添加dataset_args参数
+                if dataset_args:
+                    task_cfg['dataset_args'] = dataset_args
+                    current_app.logger.info(f"[评估任务 {evaluation_id}] 添加dataset_args: {json.dumps(dataset_args, indent=2)}")
+                    
+                if evaluation.limit and int(evaluation.limit) > 0:
+                    task_cfg['limit'] = int(evaluation.limit)
+
+                print(f'{judge_model_identifier} {judge_api_url} {judge_api_key}')
+                current_app.logger.info(f"[评估任务 {evaluation_id}] Evalscope task_cfg: {json.dumps(task_cfg, indent=2)}")
+
             evalscope_final_report = {}
             detailed_results_to_save = [] # 用于存储 ModelEvaluationResult 对象
             eval_successful = False

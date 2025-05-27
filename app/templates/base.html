@@ -26,7 +26,7 @@
             </div>
             <div class="flex-none">
                 <ul class="menu menu-horizontal px-1">
-                    {% if current_user.is_authenticated %}
+                    {% if current_user and current_user.is_authenticated %}
                         <li><a href="{{ url_for('main.dashboard') }}">仪表盘</a></li>
                         <li><a href="{{ url_for('models.list_models') }}">模型管理</a></li>
                         <li>
@@ -59,7 +59,7 @@
                         </li>
                         <li>
                             <details id="user-dropdown-details">
-                                <summary class="whitespace-nowrap">{{ current_user.username }}</summary>
+                                <summary class="whitespace-nowrap">{{ current_user.username if current_user else '用户' }}</summary>
                                 <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">
                                     <li><a href="{{ url_for('auth.change_password') }}">修改密码</a></li>
                                     <li><a href="{{ url_for('auth.logout') }}">退出登录</a></li>

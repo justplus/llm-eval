@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from app.forms import LoginForm, ChangePasswordForm
 from app.models import User
@@ -55,4 +55,11 @@ def change_password():
             return redirect(url_for('main.dashboard')) # Or wherever appropriate
         else:
             flash('当前密码不正确或更新失败，请重试。', 'danger')
-    return render_template('auth/change_password.html', title='修改密码', form=form) 
+    return render_template('auth/change_password.html', title='修改密码', form=form)
+
+@bp.route('/clear_session')
+def clear_session():
+    """清理会话数据的路由，用于解决会话损坏问题"""
+    session.clear()
+    flash('会话已清理，请重新登录。', 'info')
+    return redirect(url_for('auth.login')) 

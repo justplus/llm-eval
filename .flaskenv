@@ -8,10 +8,10 @@ FLASK_ENV=development
 DATABASE_URL="mysql+pymysql://admin:SXwx2scw3UWP@mysql.mysql-hf04-gg7jdw.svc.hfb.ipaas.cn:8066/llm_eva"
 
 # TODO: Generate a strong secret key and replace this
-SECRET_KEY="your_strong_flask_secret_key_here"
+SECRET_KEY="3d6f45a5f7b8c9e1d2a0b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7"
 
 # TODO: Generate a Fernet key (python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())") and replace this
-FERNET_ENCRYPTION_KEY="your_fernet_encryption_key_here" 
+FERNET_ENCRYPTION_KEY="YHNmcnQ_JFnvLH-1MeAUjhtuIkdn2TLCXEEGQZx9yBo="
 
 SYSTEM_PROVIDER_API_KEY="sk-yourGlobalOpenAIKey"
 

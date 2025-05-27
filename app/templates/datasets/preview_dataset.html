@@ -73,6 +73,9 @@
             返回列表
         </a>
     </div>
+    
+    <div class="badge badge-lg mb-4">{{ dataset.format }}</div>
+    
     <!-- 筛选控件 -->
     <div class="filter-container card bg-base-100 shadow-lg mb-6">
         <div class="card-body">
@@ -120,17 +123,52 @@
                 <div class="loading-spinner"></div>
             </div>
             
-            <!-- 数据表格容器 -->
-            <div id="data-container" class="overflow-x-auto data-table" style="display: none;">
+            <!-- 数据表格容器 - QA格式 -->
+            <div id="qa-data-container" class="overflow-x-auto data-table" style="display: none;">
                 <table class="table table-zebra w-full">
-                    <thead id="table-header">
+                    <thead>
                         <tr>
                             <th>#</th>
-                            <!-- 表头将由JavaScript动态生成 -->
+                            <th>系统提示</th>
+                            <th>问题</th>
+                            <th>回答</th>
                         </tr>
                     </thead>
-                    <tbody id="table-body">
-                        <!-- 表格内容将由JavaScript动态生成 -->
+                    <tbody id="qa-table-body">
+                        <!-- QA格式表格内容将由JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 数据表格容器 - MCQ格式 -->
+            <div id="mcq-data-container" class="overflow-x-auto data-table" style="display: none;">
+                <table class="table table-zebra w-full">
+                    <thead id="mcq-table-header">
+                        <tr>
+                            <th>#</th>
+                            <th>问题</th>
+                            <!-- 选项将由JavaScript动态生成 -->
+                            <th>正确答案</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mcq-table-body">
+                        <!-- MCQ格式表格内容将由JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 数据表格容器 - FILL格式 -->
+            <div id="fill-data-container" class="overflow-x-auto data-table" style="display: none;">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>问题</th>
+                            <th>正确答案</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fill-table-body">
+                        <!-- FILL格式表格内容将由JavaScript动态生成 -->
                     </tbody>
                 </table>
             </div>
@@ -168,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPage = {{ page }};
     let currentSubset = "{{ current_subset }}";
     let currentSplit = "{{ current_split }}";
+    const datasetFormat = "{{ dataset.format }}"; // 获取数据集格式
     
     // 预处理splits_by_subset数据
     let splitsMap = {};
@@ -179,11 +218,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const subsetSelect = document.getElementById('subset-select');
     const splitSelect = document.getElementById('split-select');
     const loadingContainer = document.getElementById('loading-container');
-    const dataContainer = document.getElementById('data-container');
+    const qaDataContainer = document.getElementById('qa-data-container');
+    const mcqDataContainer = document.getElementById('mcq-data-container');
+    const fillDataContainer = document.getElementById('fill-data-container');
     const noDataAlert = document.getElementById('no-data-alert');
     const paginationContainer = document.getElementById('pagination-container');
-    const tableHeader = document.getElementById('table-header').querySelector('tr');
-    const tableBody = document.getElementById('table-body');
+    const mcqTableHeader = document.getElementById('mcq-table-header').querySelector('tr');
+    const qaTableBody = document.getElementById('qa-table-body');
+    const mcqTableBody = document.getElementById('mcq-table-body');
+    const fillTableBody = document.getElementById('fill-table-body');
     const paginationLinks = document.getElementById('pagination-links');
     const totalCountSpan = document.getElementById('total-count');
     
@@ -191,7 +234,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadData(page = 1) {
         // 显示加载状态
         loadingContainer.style.display = 'flex';
-        dataContainer.style.display = 'none';
+        qaDataContainer.style.display = 'none';
+        mcqDataContainer.style.display = 'none';
+        fillDataContainer.style.display = 'none';
         noDataAlert.style.display = 'none';
         paginationContainer.style.display = 'none';
         
@@ -210,70 +255,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // 判断是否有数据
                 if (data.data && data.data.length > 0) {
-                    // 显示数据容器
-                    dataContainer.style.display = 'block';
-                    
-                    // 清空并更新表头
-                    while (tableHeader.children.length > 1) {
-                        tableHeader.removeChild(tableHeader.lastChild);
+                    // 根据数据集格式显示不同的表格
+                    if (datasetFormat === 'QA') {
+                        displayQAData(data);
+                    } else if (datasetFormat === 'MCQ') {
+                        displayMCQData(data);
+                    } else if (datasetFormat === 'FILL') {
+                        displayFillData(data);
                     }
-                    
-                    // 按照指定顺序设置表头：question/choices/answer/level
-                    const orderedFields = ['question', 'choices', 'answer', 'level'];
-                    
-                    // 获取数据的所有键名
-                    const availableKeys = Object.keys(data.data[0]);
-                    
-                    // 首先添加指定顺序的字段
-                    orderedFields.forEach(field => {
-                        if (availableKeys.includes(field)) {
-                            const th = document.createElement('th');
-                            th.textContent = field;
-                            tableHeader.appendChild(th);
-                        }
-                    });
-                    
-                    // 然后添加其他字段（如果有的话）
-                    availableKeys.forEach(key => {
-                        if (!orderedFields.includes(key)) {
-                            const th = document.createElement('th');
-                            th.textContent = key;
-                            tableHeader.appendChild(th);
-                        }
-                    });
-                    
-                    // 清空并更新表格内容
-                    tableBody.innerHTML = '';
-                    data.data.forEach((item, index) => {
-                        const tr = document.createElement('tr');
-                        
-                        // 添加序号列
-                        const indexTd = document.createElement('td');
-                        indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
-                        tr.appendChild(indexTd);
-                        
-                        // 优先添加指定顺序的字段
-                        orderedFields.forEach(field => {
-                            if (field in item) {
-                                const td = document.createElement('td');
-                                td.textContent = item[field];
-                                td.title = item[field]; // 设置悬停提示
-                                tr.appendChild(td);
-                            }
-                        });
-                        
-                        // 添加其他字段（如果有的话）
-                        Object.keys(item).forEach(key => {
-                            if (!orderedFields.includes(key)) {
-                                const td = document.createElement('td');
-                                td.textContent = item[key];
-                                td.title = item[key]; // 设置悬停提示
-                                tr.appendChild(td);
-                            }
-                        });
-                        
-                        tableBody.appendChild(tr);
-                    });
                     
                     // 更新分页
                     if (data.pagination.total_pages > 1) {
@@ -293,6 +282,168 @@ document.addEventListener('DOMContentLoaded', function() {
                 noDataAlert.style.display = 'block';
                 totalCountSpan.textContent = '(加载失败)';
             });
+    }
+    
+    // 显示问答题(QA)格式数据
+    function displayQAData(data) {
+        qaDataContainer.style.display = 'block';
+        mcqDataContainer.style.display = 'none';
+        fillDataContainer.style.display = 'none';
+        
+        // 清空表格内容
+        qaTableBody.innerHTML = '';
+        
+        // 添加数据行
+        data.data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            // 添加序号列
+            const indexTd = document.createElement('td');
+            indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
+            tr.appendChild(indexTd);
+            
+            // 添加系统提示列
+            const systemTd = document.createElement('td');
+            systemTd.textContent = item.system || '-';
+            systemTd.title = item.system || '-';
+            tr.appendChild(systemTd);
+            
+            // 添加问题列
+            const queryTd = document.createElement('td');
+            queryTd.textContent = item.query || '-';
+            queryTd.title = item.query || '-';
+            tr.appendChild(queryTd);
+            
+            // 添加回答列
+            const responseTd = document.createElement('td');
+            responseTd.textContent = item.response || '-';
+            responseTd.title = item.response || '-';
+            tr.appendChild(responseTd);
+            
+            qaTableBody.appendChild(tr);
+        });
+    }
+    
+    // 显示选择题(MCQ)格式数据
+    function displayMCQData(data) {
+        mcqDataContainer.style.display = 'block';
+        qaDataContainer.style.display = 'none';
+        fillDataContainer.style.display = 'none';
+        
+        // 清空并更新表头
+        // 保留 #, 问题, 正确答案 列
+        while (mcqTableHeader.children.length > 3) {
+            mcqTableHeader.removeChild(mcqTableHeader.lastChild);
+        }
+        
+        // 检查并添加选项列 (A, B, C...)
+        if (data.data && data.data.length > 0) {
+            const firstItem = data.data[0];
+            const optionColumns = Object.keys(firstItem).filter(key => /^[A-J]$/.test(key));
+            
+            // 找到正确答案列的位置
+            const answerColIndex = mcqTableHeader.children.length - 1;
+            
+            // 在问题和正确答案之间插入选项列
+            optionColumns.sort().forEach(option => {
+                const th = document.createElement('th');
+                th.textContent = `选项${option}`;
+                mcqTableHeader.insertBefore(th, mcqTableHeader.children[answerColIndex]);
+            });
+        }
+        
+        // 清空表格内容
+        mcqTableBody.innerHTML = '';
+        
+        // 添加数据行
+        data.data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            // 添加序号列
+            const indexTd = document.createElement('td');
+            indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
+            tr.appendChild(indexTd);
+            
+            // 添加问题列
+            const questionTd = document.createElement('td');
+            questionTd.textContent = item.question || '-';
+            questionTd.title = item.question || '-';
+            tr.appendChild(questionTd);
+            
+            // 添加选项列 (A-J)
+            for (let option of 'ABCDEFGHIJ') {
+                if (option in item) {
+                    const optionTd = document.createElement('td');
+                    optionTd.textContent = item[option] || '-';
+                    optionTd.title = item[option] || '-';
+                    tr.appendChild(optionTd);
+                }
+            }
+            
+            // 添加正确答案列
+            const answerTd = document.createElement('td');
+            answerTd.textContent = item.answer || '-';
+            answerTd.className = 'font-bold text-success';
+            answerTd.title = item.answer || '-';
+            tr.appendChild(answerTd);
+            
+            mcqTableBody.appendChild(tr);
+        });
+    }
+    
+    // 显示填空题(FILL)格式数据
+    function displayFillData(data) {
+        fillDataContainer.style.display = 'block';
+        qaDataContainer.style.display = 'none';
+        mcqDataContainer.style.display = 'none';
+        
+        // 清空表格内容
+        fillTableBody.innerHTML = '';
+        
+        // 添加数据行
+        data.data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            // 添加序号列
+            const indexTd = document.createElement('td');
+            indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
+            tr.appendChild(indexTd);
+            
+            // 添加题目列 - 拼接history和question
+            const questionTd = document.createElement('td');
+            let displayText = '';
+            
+            // 处理history字段
+            if (item.history && Array.isArray(item.history) && item.history.length > 0) {
+                item.history.forEach(turn => {
+                    if (turn.user) {
+                        displayText += `user: ${turn.user}\n`;
+                    }
+                    if (turn.assistant) {
+                        displayText += `assistant: ${turn.assistant}\n`;
+                    }
+                });
+            }
+            
+            // 添加当前问题
+            if (item.question) {
+                displayText += `user: ${item.question}`;
+            }
+            
+            questionTd.textContent = displayText || '-';
+            questionTd.title = displayText || '-';
+            questionTd.style.whiteSpace = 'pre-wrap'; // 保持换行格式
+            tr.appendChild(questionTd);
+            
+            // 添加答案列
+            const answerTd = document.createElement('td');
+            answerTd.textContent = item.answer || '-';
+            answerTd.className = 'font-bold text-success';
+            answerTd.title = item.answer || '-';
+            tr.appendChild(answerTd);
+            
+            fillTableBody.appendChild(tr);
+        });
     }
     
     // 更新分页控件函数
@@ -379,12 +530,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 splitSelect.value = currentSplit;
             }
         } else {
-            // 没有可用的用途
+            // 没有可用的用途，添加禁用选项
             const option = document.createElement('option');
             option.disabled = true;
             option.selected = true;
             option.textContent = '没有可用的用途';
             splitSelect.appendChild(option);
+            
+            // 清空当前选中的用途
             currentSplit = '';
         }
     }

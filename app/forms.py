@@ -36,13 +36,13 @@ class CustomDatasetForm(FlaskForm):
                                    widget=ListWidget(prefix_label=False),
                                    option_widget=CheckboxInput())
     publish_date = StringField('发布时间', validators=[Optional(), Length(max=50)])
-    source = StringField('来源', validators=[Optional(), Length(max=100)])
     format = SelectField('数据集格式', 
-                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)')], 
+                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)'), ('FILL', '填空题格式 (FILL)')], 
                         validators=[DataRequired()],
                         default='QA')
     dataset_file = FileField('数据集文件上传', 
-                             validators=[Optional(), FileAllowed(['zip', 'csv', 'json', 'txt', 'jsonl'], '仅允许上传 ZIP, CSV, JSON, TXT, JSONL 文件!')])
+                             validators=[DataRequired(), FileAllowed(['csv', 'jsonl'], '仅允许上传 CSV 或 JSONL 文件!')],
+                             description='选择题格式(MCQ)请上传CSV文件；问答题格式(QA)和填空题格式(FILL)请上传JSONL文件')
     sample_data_json = TextAreaField('数据集结构信息 (JSON格式)', 
                                    validators=[Optional()],
                                    description='请粘贴JSON格式的数据集结构信息，例如：{"子集名称": {"features": {"字段1": {"_type": "Value"}}}}')

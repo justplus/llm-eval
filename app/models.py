@@ -6,7 +6,14 @@ from sqlalchemy.dialects.mysql import JSON # 如果是MySQL，或者其他数据
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    try:
+        if user_id is None:
+            return None
+        return User.query.get(int(user_id))
+    except (ValueError, TypeError) as e:
+        # 记录错误但不抛出异常，返回None让Flask-Login处理
+        print(f"Error loading user {user_id}: {e}")
+        return None
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users' # Explicit table name

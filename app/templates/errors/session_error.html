@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-md mx-auto">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body text-center">
+                <!-- 错误图标 -->
+                <div class="mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                </div>
+                
+                <h2 class="card-title text-2xl mb-4 justify-center text-error">{{ title }}</h2>
+                
+                <p class="text-base-content/70 mb-6">{{ error_message }}</p>
+                
+                <div class="alert alert-info mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <h3 class="font-bold">可能的原因：</h3>
+                        <ul class="text-sm mt-2 list-disc list-inside">
+                            <li>Flask应用重启导致会话失效</li>
+                            <li>浏览器缓存了过期的会话数据</li>
+                            <li>CSRF token过期或损坏</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card-actions justify-center flex-col gap-3">
+                    <a href="{{ clear_session_url }}" class="btn btn-primary btn-wide">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        清理会话并重新登录
+                    </a>
+                    
+                    <div class="divider">或者</div>
+                    
+                    <div class="text-sm text-base-content/60">
+                        <p class="mb-2">手动解决方案：</p>
+                        <div class="flex flex-col gap-2">
+                            <button onclick="clearBrowserData()" class="btn btn-outline btn-sm">
+                                清除浏览器缓存
+                            </button>
+                            <button onclick="openIncognito()" class="btn btn-outline btn-sm">
+                                使用无痕模式
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function clearBrowserData() {
+    if (confirm('这将清除当前网站的所有缓存和Cookie数据，确定继续吗？')) {
+        // 清除localStorage
+        localStorage.clear();
+        // 清除sessionStorage
+        sessionStorage.clear();
+        
+        alert('浏览器数据已清除，页面将刷新。');
+        window.location.reload();
+    }
+}
+
+function openIncognito() {
+    alert('请手动打开浏览器的无痕/隐私模式，然后访问此网站。\n\n' +
+          'Chrome: Ctrl+Shift+N (Windows) 或 Cmd+Shift+N (Mac)\n' +
+          'Firefox: Ctrl+Shift+P (Windows) 或 Cmd+Shift+P (Mac)\n' +
+          'Safari: Cmd+Shift+N (Mac)');
+}
+
+// 自动刷新检测
+let refreshCount = parseInt(localStorage.getItem('refreshCount') || '0');
+if (refreshCount < 3) {
+    localStorage.setItem('refreshCount', (refreshCount + 1).toString());
+    setTimeout(() => {
+        console.log('尝试自动刷新...');
+        window.location.href = '{{ clear_session_url }}';
+    }, 3000);
+} else {
+    localStorage.removeItem('refreshCount');
+}
+</script>
+{% endblock %} 

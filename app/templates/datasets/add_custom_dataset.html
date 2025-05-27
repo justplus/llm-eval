@@ -22,7 +22,7 @@
                 <label class="label" for="{{ form.format.id }}">
                     <span class="label-text">{{ form.format.label.text }}<span class="text-error">*</span></span>
                 </label>
-                {{ form.format(class="select select-bordered w-full") }}
+                {{ form.format(class="select select-bordered w-full", id="dataset-format") }}
                 {% if form.format.errors %}
                     <label class="label">
                         <span class="label-text-alt text-error">
@@ -35,6 +35,60 @@
                         <span class="label-text-alt">{{ form.format.description }}</span>
                     </label>
                 {% endif %}
+            </div>
+
+            <div class="form-control">
+                <div class="collapse collapse-arrow border border-base-300 bg-base-100 rounded-box">
+                    <input type="checkbox" /> 
+                    <div class="collapse-title font-medium">
+                        数据格式说明
+                    </div>
+                    <div class="collapse-content"> 
+                        <div id="qa-format-info" class="mb-4">
+                            <h3 class="font-bold mb-2">问答题格式 (QA) - JSONL文件</h3>
+                            <div class="mockup-code max-h-60 overflow-y-auto">
+                                <pre data-prefix="1"><code>{"system": "你是一位地理学家", "query": "中国的首都是哪里？", "response": "中国的首都是北京"}</code></pre>
+                                <pre data-prefix="2"><code>{"query": "世界上最高的山是哪座山？", "response": "是珠穆朗玛峰"}</code></pre>
+                                <pre data-prefix="3"><code>{"query": "为什么北极见不到企鹅？", "response": "因为企鹅大多生活在南极"}</code></pre>
+                            </div>
+                            <p class="text-sm mt-2">
+                                <span class="font-bold">system</span>: 系统提示（可选字段）<br>
+                                <span class="font-bold">query</span>: 问题（必须字段）<br>
+                                <span class="font-bold">response</span>: 正确回答（必须字段）
+                            </p>
+                        </div>
+                        
+                        <div id="mcq-format-info" class="mb-4 hidden">
+                            <h3 class="font-bold mb-2">选择题格式 (MCQ) - CSV文件</h3>
+                            <div class="mockup-code max-h-60 overflow-y-auto">
+                                <pre data-prefix="1"><code>id,question,A,B,C,D,answer</code></pre>
+                                <pre data-prefix="2"><code>1,通常来说，组成动物蛋白质的氨基酸有____,4种,22种,20种,19种,C</code></pre>
+                                <pre data-prefix="3"><code>2,血液内存在的下列物质中，不属于代谢终产物的是____。,尿素,尿酸,丙酮酸,二氧化碳,C</code></pre>
+                            </div>
+                            <p class="text-sm mt-2">
+                                <span class="font-bold">id</span>: 序号（可选字段）<br>
+                                <span class="font-bold">question</span>: 问题（必须字段）<br>
+                                <span class="font-bold">A,B,C,D等</span>: 选项（最多支持10个选项，A-J）<br>
+                                <span class="font-bold">answer</span>: 正确选项（如A,B,C,D）
+                            </p>
+                        </div>
+                        
+                        <div id="fill-format-info" class="mb-4 hidden">
+                            <h3 class="font-bold mb-2">填空题格式 (FILL) - JSONL文件</h3>
+                            <div class="mockup-code max-h-60 overflow-y-auto">
+                                <pre data-prefix="1"><code>{"history": [{"user": "我的地铁卡钱不够了怎么办", "assistant": "看来您的地铁卡余额不足,您需要进行充值。请问您想要充值多少金额呢？"}], "question": "这里可以充钱吗",
+                                "answer": "{\"intent\": \"recharge\", \"slots\": {\"payment\": \"\"}}"}</code></pre>
+                                <pre data-prefix="2"><code>{"question": "深圳大学在深大站吗", "answer": "{\"intent\": \"around_jg\", \"slots\": {\"source_location\": \"深大站\",
+                                \"target_location\": \"深圳大学\"}}"}</code></pre>
+                            </div>
+                            <p class="text-sm mt-2">
+                                <span class="font-bold">history</span>: 历史对话信息，首轮不用填，有的话使用list格式<br>
+                                <span class="font-bold">question</span>: 用户问题<br>
+                                <span class="font-bold">answer</span>: 正确答案（必须字段）
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="form-control w-full">
@@ -91,4 +145,37 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formatSelect = document.getElementById('dataset-format');
+    const qaFormatInfo = document.getElementById('qa-format-info');
+    const mcqFormatInfo = document.getElementById('mcq-format-info');
+    const fillFormatInfo = document.getElementById('fill-format-info');
+    
+    // 初始显示正确的格式说明
+    updateFormatInfo(formatSelect.value);
+    
+    // 监听格式选择变化
+    formatSelect.addEventListener('change', function() {
+        updateFormatInfo(this.value);
+    });
+    
+    function updateFormatInfo(format) {
+        // 隐藏所有格式说明
+        qaFormatInfo.classList.add('hidden');
+        mcqFormatInfo.classList.add('hidden');
+        fillFormatInfo.classList.add('hidden');
+        
+        // 显示对应的格式说明
+        if (format === 'QA') {
+            qaFormatInfo.classList.remove('hidden');
+        } else if (format === 'MCQ') {
+            mcqFormatInfo.classList.remove('hidden');
+        } else if (format === 'FILL') {
+            fillFormatInfo.classList.remove('hidden');
+        }
+    }
+});
+</script>
 {% endblock %} 
