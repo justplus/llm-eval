@@ -2,10 +2,13 @@ from flask import Flask, g, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
-from .config import Config
+from .config import config
 import datetime
 import logging  # 添加logging模块导入
+import os  # 添加os模块导入
 from app.adapter.general_intent_adapter import register_genera_intent_benchmark
+# 导入数据集插件，确保@register_dataset装饰器能够正确注册
+from app.adapter.general_intent_dataset_plugin import CustomDatasetPlugin
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -14,9 +17,26 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = "请登录以访问此页面。"
 login_manager.login_message_category = "info"
 
-def create_app(config_class=Config):
+def create_app(config_name=None):
+    """创建Flask应用实例
+    
+    Args:
+        config_name: 配置名称 ('development', 'production', 'default')
+                    如果为None，则从环境变量FLASK_ENV获取
+    """
     app = Flask(__name__)
+    
+    # 确定配置类
+    if config_name is None:
+        config_name = os.environ.get('FLASK_ENV', 'development')
+    
+    config_class = config.get(config_name, config['default'])
     app.config.from_object(config_class)
+    
+    # 输出当前配置信息
+    app.logger.info(f"🔧 使用配置: {config_name}")
+    app.logger.info(f"🐛 调试模式: {'开启' if app.config.get('DEBUG') else '关闭'}")
+    app.logger.info(f"📄 模板自动重载: {'开启' if app.config.get('TEMPLATES_AUTO_RELOAD') else '关闭'}")
     
     # 会话配置
     app.config['SESSION_COOKIE_SECURE'] = False  # 开发环境设为False，生产环境应设为True
@@ -37,6 +57,45 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    
+    # 添加自定义Jinja2过滤器
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        """将JSON字符串或Python字典字符串转换为Python对象，如果失败返回None"""
+        import json
+        import ast
+        try:
+            # 首先尝试标准JSON解析
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            try:
+                # 如果JSON解析失败，尝试使用ast.literal_eval解析Python字典格式
+                return ast.literal_eval(value)
+            except (ValueError, SyntaxError, TypeError):
+                return None
+
+    @app.template_filter('clean_json')
+    def clean_json_filter(value):
+        """清理模型回答中的JSON格式，去掉代码块标记并压缩JSON"""
+        import json
+        import re
+        
+        if not value:
+            return value
+            
+        # 去掉开头的```json或```和结尾的```
+        cleaned = re.sub(r'^```(?:json)?\s*\n?', '', value.strip())
+        cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+        
+        # 尝试解析并压缩JSON
+        try:
+            # 尝试解析为JSON对象
+            json_obj = json.loads(cleaned)
+            # 返回压缩的JSON字符串（不带缩进和空格）
+            return json.dumps(json_obj, ensure_ascii=False, separators=(',', ':'))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            # 如果不是有效的JSON，返回清理后的文本
+            return cleaned.strip()
 
     @app.before_request
     def global_vars_before_request():

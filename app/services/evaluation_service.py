@@ -357,11 +357,47 @@ class EvaluationService:
                                         parsed_pred_answer_for_feedback = review_data.get('pred', '') 
                                         score = review_data.get('result')
 
+                                        # 处理不同格式的result
                                         try:
                                             if score is not None:
-                                                score = float(score)
-                                        except (ValueError, TypeError):
-                                            current_app.logger.warning(f"[评估任务 {evaluation_id}] Could not parse score '{score}' as float for an item in {review_file_path}. Setting to None.")
+                                                if isinstance(score, dict):
+                                                    # 处理复合结果格式: {"intent_result": true, "slots_result": {"miss_count": 1, "correct_count": 1, "fail_count": 0}}
+                                                    if 'intent_result' in score and 'slots_result' in score:
+                                                        intent_result = score.get('intent_result', False)
+                                                        slots_result = score.get('slots_result', {})
+                                                        
+                                                        # 计算slot的F1分数
+                                                        correct_count = slots_result.get('correct_count', 0)
+                                                        miss_count = slots_result.get('miss_count', 0)
+                                                        fail_count = slots_result.get('fail_count', 0)
+                                                        
+                                                        # F1 = 2 * precision * recall / (precision + recall)
+                                                        # precision = correct / (correct + fail)
+                                                        # recall = correct / (correct + miss)
+                                                        total_predicted = correct_count + fail_count
+                                                        total_actual = correct_count + miss_count
+                                                        
+                                                        if total_predicted > 0 and total_actual > 0:
+                                                            precision = correct_count / total_predicted
+                                                            recall = correct_count / total_actual
+                                                            if precision + recall > 0:
+                                                                slot_f1 = 2 * precision * recall / (precision + recall)
+                                                            else:
+                                                                slot_f1 = 0.0
+                                                        else:
+                                                            slot_f1 = 0.0
+                                                        
+                                                        # 最终分数 = intent_result * slot_f1
+                                                        score = float(intent_result) * slot_f1
+                                                        current_app.logger.debug(f"[评估任务 {evaluation_id}] 复合结果计算: intent={intent_result}, slot_f1={slot_f1:.4f}, final_score={score:.4f}")
+                                                    else:
+                                                        # 其他字典格式，尝试转换为float
+                                                        score = float(score)
+                                                else:
+                                                    # 原有的简单数值格式
+                                                    score = float(score)
+                                        except (ValueError, TypeError) as e:
+                                            current_app.logger.warning(f"[评估任务 {evaluation_id}] Could not parse score '{score}' for an item in {review_file_path}. Error: {str(e)}. Setting to None.")
                                             score = None
 
                                         result_entry = ModelEvaluationResult(
@@ -440,7 +476,9 @@ class EvaluationService:
         user_id: int, 
         page: int = 1, 
         per_page: int = 10,
-        search_query: Optional[str] = None  # 新增搜索查询参数
+        search_query: Optional[str] = None,  # 搜索查询参数
+        min_score: Optional[float] = None,   # 最小分数筛选
+        max_score: Optional[float] = None    # 最大分数筛选
     ) -> Tuple[List[ModelEvaluationResult], int]:
         evaluation = ModelEvaluation.query.get(evaluation_id)
         if not evaluation or evaluation.user_id != user_id:
@@ -451,10 +489,16 @@ class EvaluationService:
         # 如果提供了搜索查询，则添加模糊搜索条件
         if search_query:
             query = query.filter(ModelEvaluationResult.question.ilike(f"%{search_query}%"))
+        
+        # 添加分数范围筛选条件
+        if min_score is not None:
+            query = query.filter(ModelEvaluationResult.score >= min_score)
+        if max_score is not None:
+            query = query.filter(ModelEvaluationResult.score <= max_score)
             
         query = query.order_by(ModelEvaluationResult.id.asc())
         
         total = query.count()
         results = query.paginate(page=page, per_page=per_page, error_out=False).items
-        current_app.logger.info(f"[评估结果查询] EvalID: {evaluation_id}, UserID: {user_id}, Page: {page}, Search: '{search_query}', Found: {len(results)}, Total: {total}")
+        current_app.logger.info(f"[评估结果查询] EvalID: {evaluation_id}, UserID: {user_id}, Page: {page}, Search: '{search_query}', ScoreRange: [{min_score}, {max_score}], Found: {len(results)}, Total: {total}")
         return results, total 

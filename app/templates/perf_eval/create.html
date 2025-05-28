@@ -5,68 +5,129 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold">{{ title }}</h1>
+        <h1 class="text-3xl font-bold">
+            <i class="fas fa-rocket mr-2"></i>{{ title }}
+        </h1>
         <a href="{{ url_for('perf_eval.history') }}" class="btn btn-outline btn-secondary">
-            <i class="fas fa-history mr-1"></i> 查看历史评估
+            <i class="fas fa-history mr-2"></i>查看历史评估
         </a>
     </div>
 
     <div class="card bg-base-100 shadow-xl mb-8">
         <div class="card-body">
-            <h2 class="card-title text-xl mb-4">发起新的性能评估</h2>
-            <form method="POST" action="{{ url_for('perf_eval.create') }}" class="space-y-4">
+            <h2 class="card-title text-xl mb-6">
+                <i class="fas fa-cog mr-2"></i>配置性能评估参数
+            </h2>
+            <form method="POST" action="{{ url_for('perf_eval.create') }}" class="space-y-6">
                 {{ form.hidden_tag() }}
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <!-- 左列 -->
-                    <div>
+                    <div class="space-y-6">
                         <div class="form-control w-full">
-                            {{ form.model_name.label(class="label") }}
-                            {{ form.model_name(class="select select-bordered w-full") }}
+                            <label class="label">
+                                <span class="label-text font-semibold">
+                                    <i class="fas fa-robot mr-2 text-primary"></i>{{ form.model_name.label.text }}
+                                </span>
+                            </label>
+                            {{ form.model_name(class="select select-bordered w-full focus:select-primary") }}
                             {% if form.model_name.errors %}
-                                <ul class="text-error text-xs mt-1">
-                                    {% for error in form.model_name.errors %}<li>{{ error }}</li>{% endfor %}
-                                </ul>
+                                <label class="label">
+                                    <span class="label-text-alt text-error">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        {% for error in form.model_name.errors %}{{ error }}{% endfor %}
+                                    </span>
+                                </label>
                             {% endif %}
+                            <label class="label">
+                                <span class="label-text-alt">选择要进行性能测试的模型</span>
+                            </label>
                         </div>
 
-                        <div class="form-control w-full mt-4">
-                            {{ form.concurrency.label(class="label") }}
-                            {{ form.concurrency(class="input input-bordered w-full") }}
+                        <div class="form-control w-full">
+                            <label class="label">
+                                <span class="label-text font-semibold">
+                                    <i class="fas fa-layer-group mr-2 text-secondary"></i>{{ form.concurrency.label.text }}
+                                </span>
+                            </label>
+                            {{ form.concurrency(class="input input-bordered w-full focus:input-secondary", placeholder="例如: 10") }}
                             {% if form.concurrency.errors %}
-                                <ul class="text-error text-xs mt-1">
-                                    {% for error in form.concurrency.errors %}<li>{{ error }}</li>{% endfor %}
-                                </ul>
+                                <label class="label">
+                                    <span class="label-text-alt text-error">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        {% for error in form.concurrency.errors %}{{ error }}{% endfor %}
+                                    </span>
+                                </label>
                             {% endif %}
+                            <label class="label">
+                                <span class="label-text-alt">同时发送请求的并发数量</span>
+                            </label>
                         </div>
                     </div>
 
                     <!-- 右列 -->
-                    <div>
+                    <div class="space-y-6">
                         <div class="form-control w-full">
-                            {{ form.dataset_name.label(class="label") }}
-                            {{ form.dataset_name(class="select select-bordered w-full") }}
+                            <label class="label">
+                                <span class="label-text font-semibold">
+                                    <i class="fas fa-database mr-2 text-accent"></i>{{ form.dataset_name.label.text }}
+                                </span>
+                            </label>
+                            {{ form.dataset_name(class="select select-bordered w-full focus:select-accent") }}
                             {% if form.dataset_name.errors %}
-                                <ul class="text-error text-xs mt-1">
-                                    {% for error in form.dataset_name.errors %}<li>{{ error }}</li>{% endfor %}
-                                </ul>
+                                <label class="label">
+                                    <span class="label-text-alt text-error">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        {% for error in form.dataset_name.errors %}{{ error }}{% endfor %}
+                                    </span>
+                                </label>
                             {% endif %}
+                            <label class="label">
+                                <span class="label-text-alt">选择用于测试的自建数据集（包括自己创建的和别人公开的）</span>
+                            </label>
                         </div>
 
-                        <div class="form-control w-full mt-4">
-                            {{ form.num_requests.label(class="label") }}
-                            {{ form.num_requests(class="input input-bordered w-full") }}
+                        <div class="form-control w-full">
+                            <label class="label">
+                                <span class="label-text font-semibold">
+                                    <i class="fas fa-paper-plane mr-2 text-info"></i>{{ form.num_requests.label.text }}
+                                </span>
+                            </label>
+                            {{ form.num_requests(class="input input-bordered w-full focus:input-info", placeholder="例如: 100") }}
                             {% if form.num_requests.errors %}
-                                <ul class="text-error text-xs mt-1">
-                                    {% for error in form.num_requests.errors %}<li>{{ error }}</li>{% endfor %}
-                                </ul>
+                                <label class="label">
+                                    <span class="label-text-alt text-error">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        {% for error in form.num_requests.errors %}{{ error }}{% endfor %}
+                                    </span>
+                                </label>
                             {% endif %}
+                            <label class="label">
+                                <span class="label-text-alt">总共发送的请求数量</span>
+                            </label>
                         </div>
                     </div>
                 </div>
 
-                <div class="card-actions justify-start mt-6">
-                    {{ form.submit(class="btn btn-primary") }}
+                <!-- 提示信息 -->
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <h3 class="font-bold">性能评估说明</h3>
+                        <div class="text-sm mt-1">
+                            <ul class="list-disc list-inside space-y-1">
+                                <li>性能评估将测试模型的响应速度、吞吐量和延迟等指标</li>
+                                <li>评估过程可能需要几分钟到几十分钟，具体取决于请求数量和并发数</li>
+                                <li>建议先使用较小的参数进行测试，确认配置正确后再进行大规模评估</li>
+                                <li>只支持自建数据集（包括自己创建的和别人公开的），确保数据安全和可控性</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-actions justify-center mt-8">
+                    {{ form.submit(class="btn btn-primary btn-lg") }}
+                    <a href="{{ url_for('perf_eval.history') }}" class="btn btn-outline btn-lg">取消</a>
                 </div>
             </form>
         </div>

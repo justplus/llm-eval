@@ -8,6 +8,8 @@ import json # For parsing sample_data_json
 import os # For os.path.join
 from werkzeug.utils import secure_filename # For secure filenames
 import math # 用于分页计算
+from datetime import datetime
+from sqlalchemy import or_, and_
 
 # 创建一个名为 'datasets' 的蓝图
 bp = Blueprint('datasets', __name__, url_prefix='/datasets')
@@ -15,7 +17,11 @@ bp = Blueprint('datasets', __name__, url_prefix='/datasets')
 @bp.route('/system')
 def system_datasets_list():
     """
-    显示系统内置的数据集列表，支持按分类筛选。
+    显示数据集列表，支持按分类筛选。
+    权限控制：
+    1. 自己创建的所有数据集（无论是否公开）
+    2. 别人创建的公开数据集
+    3. 系统数据集
     默认只显示已激活的数据集，通过show_all参数可显示所有数据集。
     """
     selected_category_name = request.args.get('category', '全部') # 默认为'全部'
@@ -28,6 +34,34 @@ def system_datasets_list():
     # 如果不显示所有数据集，则只返回已激活的数据集
     if not show_all:
         query = query.filter(SystemDataset.is_active == True)
+    
+    # 权限过滤：只显示有权限查看的数据集
+    if current_user and current_user.is_authenticated:
+        query = query.filter(
+            or_(
+                # 自己创建的所有数据集
+                SystemDataset.source == current_user.username,
+                # 别人创建的公开数据集
+                and_(
+                    SystemDataset.source != current_user.username,
+                    SystemDataset.visibility == '公开'
+                ),
+                # 系统数据集（source为空或为'系统'）
+                or_(
+                    SystemDataset.source.is_(None),
+                    SystemDataset.source == '系统'
+                )
+            )
+        )
+    else:
+        # 未登录用户只能看到公开数据集和系统数据集
+        query = query.filter(
+            or_(
+                SystemDataset.visibility == '公开',
+                SystemDataset.source.is_(None),
+                SystemDataset.source == '系统'
+            )
+        )
     
     if selected_category_name != '全部' and selected_category_name:
         query = query.join(SystemDataset.categories).filter(DatasetCategory.name == selected_category_name)
@@ -241,10 +275,15 @@ def add_custom_dataset():
                 flash('请上传数据集文件。', 'error')
                 return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
             
+            # 处理发布日期，如果为空则设置为当前日期
+            publish_date = form.publish_date.data
+            if not publish_date or publish_date.strip() == '':
+                publish_date = datetime.now().strftime('%Y-%m-%d')
+            
             new_dataset = SystemDataset(
                 name=form.name.data,
                 description=form.description.data,
-                publish_date=form.publish_date.data,
+                publish_date=publish_date,
                 source=current_user.username,
                 download_url=file_path,
                 dataset_info=dataset_info_data,
@@ -271,13 +310,32 @@ def add_custom_dataset():
         
     return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form) 
 
-@bp.route('/api/dataset/<int:dataset_id>/data')
-def api_dataset_data(dataset_id):
+@bp.route('/<int:dataset_id>/data')
+def list_dataset_data(dataset_id):
     """
     API端点：异步获取数据集预览数据
+    权限控制：只允许访问有权限的数据集
     """
     # 获取数据集信息
     dataset = SystemDataset.query.get_or_404(dataset_id)
+    
+    # 权限检查
+    if current_user and current_user.is_authenticated:
+        # 检查是否有权限访问此数据集
+        has_permission = (
+            # 自己创建的数据集
+            dataset.source == current_user.username or
+            # 公开的数据集
+            dataset.visibility == '公开' or
+            # 系统数据集
+            dataset.source in [None, '系统']
+        )
+        if not has_permission:
+            return jsonify({'error': '您没有权限访问此数据集'}), 403
+    else:
+        # 未登录用户只能访问公开数据集和系统数据集
+        if dataset.visibility != '公开' and dataset.source not in [None, '系统']:
+            return jsonify({'error': '您没有权限访问此数据集'}), 403
     
     # 获取筛选参数
     subset = request.args.get('subset', '')
@@ -305,6 +363,7 @@ def api_dataset_data(dataset_id):
     
     return jsonify({
         'data': data,
+        'field_order': list(data[0].keys()) if data else [],  # 添加字段顺序信息
         'pagination': {
             'page': page,
             'per_page': per_page,
@@ -318,10 +377,31 @@ def api_dataset_data(dataset_id):
 def preview_dataset(dataset_id):
     """
     预览数据集内容，支持筛选子数据集和用途。
+    权限控制：只允许访问有权限的数据集
     使用异步加载方式获取数据集数据。
     """
     # 获取数据集信息
     dataset = SystemDataset.query.get_or_404(dataset_id)
+    
+    # 权限检查
+    if current_user and current_user.is_authenticated:
+        # 检查是否有权限访问此数据集
+        has_permission = (
+            # 自己创建的数据集
+            dataset.source == current_user.username or
+            # 公开的数据集
+            dataset.visibility == '公开' or
+            # 系统数据集
+            dataset.source in [None, '系统']
+        )
+        if not has_permission:
+            flash('您没有权限访问此数据集', 'error')
+            return redirect(url_for('datasets.system_datasets_list'))
+    else:
+        # 未登录用户只能访问公开数据集和系统数据集
+        if dataset.visibility != '公开' and dataset.source not in [None, '系统']:
+            flash('您没有权限访问此数据集', 'error')
+            return redirect(url_for('datasets.system_datasets_list'))
     
     # 获取筛选参数
     subset = request.args.get('subset', '')
@@ -358,7 +438,7 @@ def preview_dataset(dataset_id):
         page=page
     ) 
 
-@bp.route('/api/dataset/<int:dataset_id>/toggle_active', methods=['POST'])
+@bp.route('/<int:dataset_id>/toggle_active', methods=['POST'])
 def toggle_dataset_active(dataset_id):
     """
     API端点：切换数据集的启用/禁用状态
@@ -384,7 +464,7 @@ def toggle_dataset_active(dataset_id):
             'message': f'操作失败: {str(e)}'
         }), 500
 
-@bp.route('/api/dataset/<int:dataset_id>/delete', methods=['DELETE'])
+@bp.route('/<int:dataset_id>/delete', methods=['DELETE'])
 @login_required
 def delete_dataset(dataset_id):
     """

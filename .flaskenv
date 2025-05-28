@@ -1,5 +1,6 @@
 FLASK_APP=run.py
 FLASK_ENV=development
+FLASK_DEBUG=1
 
 # TODO: Replace with your actual database URL
 # Example for MySQL with PyMySQL: mysql+pymysql://username:password@host:port/database_name
@@ -24,3 +25,19 @@ DEFAULT_MODEL_API_KEY="ST-xxx"
 
 # Base URL for the System Model Provider
 SYSTEM_PROVIDER_BASE_URL="http://172.31.114.167/v1" # TODO: Verify or update this URL as needed
+
+# 开发环境下启用SQL查询日志（可选，用于调试数据库查询）
+# SQLALCHEMY_ECHO=true
+
+# 数据库配置（请根据实际情况修改）
+# DATABASE_URL=mysql://username:password@localhost/llm_eva
+
+# API密钥配置（请根据实际情况设置）
+# SYSTEM_OPENAI_API_KEY=your_openai_api_key_here
+# SYSTEM_PROVIDER_BASE_URL=https://api.openai.com/v1
+
+# 加密密钥（生产环境请使用强密钥）
+# FERNET_ENCRYPTION_KEY=your_fernet_key_here
+
+# Flask密钥（生产环境请使用强密钥）
+# SECRET_KEY=your_secret_key_here

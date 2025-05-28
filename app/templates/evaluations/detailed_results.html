@@ -11,18 +11,55 @@
         </a>
     </div>
 
-    <!-- 搜索表单 -->
-    <form method="GET" action="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="mb-6">
-        <div class="join w-full">
-            <input type="text" name="search_query" placeholder="按问题内容搜索..." value="{{ search_query or '''' }}" class="input input-bordered join-item w-full"/>
-            <button type="submit" class="btn btn-primary join-item">
-                <i class="fas fa-search mr-1"></i> 搜索
-            </button>
-            {% if search_query %}
-            <a href="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="btn btn-ghost join-item" title="清除搜索">
-                <i class="fas fa-times"></i>
-            </a>
-            {% endif %}
+    <!-- 搜索和筛选表单 -->
+    <form method="GET" action="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="mb-6" id="filterForm">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <!-- 搜索框 -->
+            <div class="join w-full">
+                <input type="text" name="search_query" placeholder="按问题内容搜索..." value="{{ search_query or '''' }}" class="input input-bordered join-item w-full"/>
+                <button type="submit" class="btn btn-primary join-item">
+                    <i class="fas fa-search mr-1"></i> 搜索
+                </button>
+            </div>
+            
+            <!-- 清除按钮 -->
+            <div class="flex justify-end">
+                {% if search_query or min_score is not none or max_score is not none %}
+                <a href="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="btn btn-ghost" title="清除所有筛选">
+                    <i class="fas fa-times mr-1"></i> 清除筛选
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 分数范围筛选 -->
+        <div class="card bg-base-200 p-4">
+            <h3 class="font-semibold mb-3">
+                <i class="fas fa-filter mr-2"></i>按分数范围筛选
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label class="label">
+                        <span class="label-text">最低分数</span>
+                    </label>
+                    <input type="number" name="min_score" step="0.01" min="0" max="1" 
+                           value="{{ min_score if min_score is not none else '' }}" 
+                           placeholder="0.0" class="input input-bordered w-full" id="minScore"/>
+                </div>
+                <div>
+                    <label class="label">
+                        <span class="label-text">最高分数</span>
+                    </label>
+                    <input type="number" name="max_score" step="0.01" min="0" max="1" 
+                           value="{{ max_score if max_score is not none else '' }}" 
+                           placeholder="1.0" class="input input-bordered w-full" id="maxScore"/>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-secondary w-full">
+                        <i class="fas fa-filter mr-1"></i> 应用筛选
+                    </button>
+                </div>
+            </div>
         </div>
     </form>
 
@@ -44,27 +81,76 @@
 
                     <div class="my-2">
                         <p class="font-semibold">问题:</p>
-                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.question }}</div>
+                        <div class="p-3 bg-base-300 rounded-lg mt-1">
+                            {% set question_data = result.question | from_json %}
+                            {% if question_data %}
+                                <!-- 对话历史 -->
+                                {% if question_data.history or question_data.hisotory %}
+                                <div class="space-y-3 mb-4">
+                                    {% for turn in (question_data.history or question_data.hisotory or []) %}
+                                        {% if turn.user %}
+                                        <div class="flex items-start gap-2">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center mt-1">
+                                                <i class="fas fa-user text-white text-xs"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <!-- <div class="text-sm font-medium text-primary mb-1">User:</div> -->
+                                                <div class="text-sm whitespace-pre-wrap break-words">{{ turn.user }}</div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        {% if turn.assistant %}
+                                        <div class="flex items-start gap-2">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center mt-1">
+                                                <i class="fas fa-robot text-white text-xs"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <!-- <div class="text-sm font-medium text-secondary mb-1">Assistant:</div> -->
+                                                <div class="text-sm whitespace-pre-wrap break-words">{{ turn.assistant }}</div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                <!-- 当前问题 -->
+                                {% if question_data.question or question_data.user or question_data.query %}
+                                <div class="flex items-start gap-2">
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center mt-1">
+                                        <i class="fas fa-user text-white text-xs"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <!-- <div class="text-sm font-medium text-accent mb-1">User:</div> -->
+                                        <div class="text-sm whitespace-pre-wrap break-words">{{ question_data.question or question_data.user or question_data.query }}</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <!-- 如果不是JSON格式，直接显示原文 -->
+                                <div class="whitespace-pre-wrap break-words">{{ result.question }}</div>
+                            {% endif %}
+                        </div>
                     </div>
 
                     {% if result.reference_answer %}
                     <div class="my-2">
                         <p class="font-semibold">参考答案:</p>
-                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.reference_answer }}</div>
+                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap break-words">{{ result.reference_answer }}</div>
                     </div>
                     {% endif %}
 
                     <div class="my-2">
                         <p class="font-semibold">模型回答:</p>
-                        <div class="p-3 bg-primary bg-opacity-10 rounded-lg mt-1 whitespace-pre-wrap">{{ result.model_answer }}</div>
+                        <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap break-words">{{ result.model_answer | clean_json }}</div>
                     </div>
 
-                    {% if result.feedback %}
+                    <!-- {% if result.feedback %}
                     <div class="my-2">
                         <p class="font-semibold">裁判评价:</p>
                         <div class="p-3 bg-base-300 rounded-lg mt-1 whitespace-pre-wrap">{{ result.feedback }}</div>
                     </div>
-                    {% endif %}
+                    {% endif %} -->
                 </div>
             </div>
             {% endfor %}
@@ -76,6 +162,8 @@
             <div class="btn-group">
                 {% set base_url_params = {'evaluation_id': evaluation.id} %}
                 {% if search_query %}{% set _ = base_url_params.update({'search_query': search_query}) %}{% endif %}
+                {% if min_score is not none %}{% set _ = base_url_params.update({'min_score': min_score}) %}{% endif %}
+                {% if max_score is not none %}{% set _ = base_url_params.update({'max_score': max_score}) %}{% endif %}
 
                 {% if page > 1 %}
                 <a href="{{ url_for('evaluations.view_detailed_results', page=page-1, **base_url_params) }}" class="btn btn-outline">
@@ -117,4 +205,6 @@
         </div>
     {% endif %}
 </div>
+
+
 {% endblock %} 

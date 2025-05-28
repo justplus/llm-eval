@@ -5,6 +5,7 @@ from app.models import AIModel, SystemDataset, ModelEvaluation, ModelEvaluationR
 from app.services.evaluation_service import EvaluationService
 import json
 from math import ceil # 用于分页计算
+from sqlalchemy import or_, and_
 
 bp = Blueprint('evaluations', __name__, url_prefix='/evaluations')
 
@@ -36,13 +37,39 @@ def create_evaluation():
     """创建模型评估页面"""
     if request.method == 'GET':
         # 获取用户可用的自定义模型列表 (被评估模型)
-        custom_models = AIModel.query.filter_by(user_id=current_user.id, is_system_model=False, is_validated=True).all()
+        # 移除is_validated限制，允许用户评估自己的所有自定义模型
+        custom_models = AIModel.query.filter_by(is_system_model=False).all()
+        
+        # 调试信息
+        current_app.logger.info(f"用户 {current_user.username} 的自定义模型数量: {len(custom_models)}")
+        for model in custom_models:
+            current_app.logger.info(f"模型: {model.display_name}, 验证状态: {model.is_validated}")
         
         # 获取系统内置模型列表 (裁判模型)
-        system_models = AIModel.query.filter_by(is_system_model=True, is_validated=True).all()
+        system_models = AIModel.query.filter_by(is_system_model=True).all()
+        current_app.logger.info(f"系统模型数量: {len(system_models)}")
         
-        # 获取已启用的数据集列表
-        datasets = SystemDataset.query.filter_by(is_active=True).order_by(SystemDataset.name).all()
+        # 获取已启用的数据集列表 - 修复权限问题
+        # 1. 自己创建的所有数据集（无论是否公开）
+        # 2. 别人创建的公开数据集
+        datasets = SystemDataset.query.filter(
+            SystemDataset.is_active == True
+        ).filter(
+            or_(
+                # 自己创建的所有数据集
+                SystemDataset.source == current_user.username,
+                # 别人创建的公开数据集
+                and_(
+                    SystemDataset.source != current_user.username,
+                    SystemDataset.visibility == '公开'
+                ),
+                # 系统数据集（source为空或为'系统'）
+                or_(
+                    SystemDataset.source.is_(None),
+                    SystemDataset.source == '系统'
+                )
+            )
+        ).order_by(SystemDataset.name).all()
         
         return render_template(
             'evaluations/create_evaluation.html',
@@ -232,6 +259,8 @@ def view_detailed_results(evaluation_id):
 
     page = request.args.get('page', 1, type=int)
     search_query = request.args.get('search_query', None, type=str)
+    min_score = request.args.get('min_score', None, type=float)
+    max_score = request.args.get('max_score', None, type=float)
     # 从配置或默认设置每页项目数
     per_page = current_app.config.get('RESULTS_PER_PAGE', 10) 
 
@@ -240,7 +269,9 @@ def view_detailed_results(evaluation_id):
         user_id=current_user.id,
         page=page,
         per_page=per_page,
-        search_query=search_query
+        search_query=search_query,
+        min_score=min_score,
+        max_score=max_score
     )
     
     if page < 1: # 确保页码至少为1
@@ -265,5 +296,7 @@ def view_detailed_results(evaluation_id):
         per_page=per_page,
         total_pages=total_pages,
         search_query=search_query,
+        min_score=min_score,
+        max_score=max_score,
         total_results=total_results 
     ) 

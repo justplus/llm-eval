@@ -10,10 +10,13 @@ import tempfile # 用于创建临时文件
 import os # 用于文件操作
 import traceback # 用于详细错误信息
 import pickle # 用于序列化结果
+from sqlalchemy import and_, or_
 
 # evalscope导入
 from evalscope.perf.main import run_perf_benchmark
 
+# 导入自定义数据集插件，确保装饰器能够正确注册
+from app.adapter.general_intent_dataset_plugin import CustomDatasetPlugin
 
 perf_eval_bp = Blueprint('perf_eval', __name__, url_prefix='/perf_eval')
 
@@ -330,13 +333,30 @@ def create():
         # 添加一个空选项，防止表单校验错误
         available_models = [('', '-- 请先创建模型 --')]
     
-    # 从数据库中读取所有活跃的数据集
-    available_datasets = [(d.name, d.name) for d in SystemDataset.query.filter_by(is_active=True).all()]
+    # 从数据库中读取所有活跃的自建数据集（只允许自建数据集参与性能评估）
+    # 权限控制：自己创建的自建数据集 + 别人公开的自建数据集
+    available_datasets = [
+        (d.id, d.name) for d in SystemDataset.query.filter(
+            and_(
+                SystemDataset.is_active == True,
+                SystemDataset.dataset_type == '自建',
+                or_(
+                    # 自己创建的自建数据集（无论是否公开）
+                    SystemDataset.source == current_user.username,
+                    # 别人创建的公开自建数据集
+                    and_(
+                        SystemDataset.source != current_user.username,
+                        SystemDataset.visibility == '公开'
+                    )
+                )
+            )
+        ).all()
+    ]
     
-    # 如果没有可用的数据集，添加提示信息
+    # 如果没有可用的自建数据集，添加提示信息
     if not available_datasets:
-        flash('没有找到可用的数据集，请确保至少有一个启用的数据集。', 'warning')
-        available_datasets = [('', '-- 无可用数据集 --')]
+        flash('没有找到可用的自建数据集，请先创建并启用自建数据集，或等待其他用户公开自建数据集。', 'warning')
+        available_datasets = [('', '-- 无可用自建数据集 --')]
     
     form.model_name.choices = available_models
     form.dataset_name.choices = available_datasets
@@ -349,7 +369,7 @@ def create():
         
         # 检查数据集是否存在
         if not available_datasets or available_datasets[0][0] == '':
-            flash('没有可用的数据集，无法进行性能评估。', 'error')
+            flash('没有可用的自建数据集，无法进行性能评估。', 'error')
             return redirect(url_for('perf_eval.create'))
             
         try:
@@ -359,13 +379,31 @@ def create():
                 flash('选择的模型未找到!', 'danger')
                 return redirect(url_for('perf_eval.create'))
 
+            # 获取选中的数据集信息
+            dataset_id = form.dataset_name.data
+            selected_dataset = SystemDataset.query.get(dataset_id)
+            if not selected_dataset:
+                flash('选择的数据集未找到!', 'danger')
+                return redirect(url_for('perf_eval.create'))
+            
+            # 验证数据集是自建类型
+            if selected_dataset.dataset_type != '自建':
+                flash('只能使用自建数据集进行性能评估!', 'danger')
+                return redirect(url_for('perf_eval.create'))
+            
+            # 验证数据集文件路径存在
+            if not selected_dataset.download_url or not os.path.exists(selected_dataset.download_url):
+                flash('数据集文件不存在，无法进行性能评估!', 'danger')
+                return redirect(url_for('perf_eval.create'))
+
             task_cfg = {
                 "url": selected_model.api_base_url.rstrip('/') + '/chat/completions' if not selected_model.api_base_url.endswith('/chat/completions') else selected_model.api_base_url,
                 "parallel": form.concurrency.data,
                 "model": model_identifier,
                 "number": form.num_requests.data,
                 "api": 'openai',
-                "dataset": "openqa" or form.dataset_name.data, 
+                "dataset": 'general_intent',
+                "dataset_path": selected_dataset.download_url,  # 使用实际的文件路径
                 "stream": True
             }
             
@@ -374,7 +412,7 @@ def create():
             # 创建任务记录
             new_task = PerformanceEvalTask(
                 model_name=model_identifier,
-                dataset_name=form.dataset_name.data,
+                dataset_name=selected_dataset.name,
                 concurrency=form.concurrency.data,
                 num_requests=form.num_requests.data,
                 status='pending',  # 初始状态为pending
@@ -464,49 +502,3 @@ def delete_task(task_id):
         return redirect(url_for('perf_eval.create'))
     else:
         return redirect(url_for('perf_eval.history'))
-
-# 可以在这里添加一个辅助函数来实际运行 run_perf_benchmark
-# def run_perf_benchmark_and_capture_output(task_cfg):
-#     # 需要导入 subprocess
-#     import subprocess
-#     # 找到 run_perf_benchmark 脚本的路径，或者确保它在 PYTHONPATH 中
-#     # 假设 evalscope 是一个可执行的命令或脚本
-#     # command = ["python", "-m", "evalscope.perf.main", "--config_file", "path_to_temp_config_file.json"]
-#     # 或者直接调用函数，但需要确保环境和依赖正确
-#     try:
-#         # 这里需要一种方法来将 task_cfg 传递给 evalscope
-#         # 如果 run_perf_benchmark 是一个函数，可以直接调用
-#         # from evalscope.perf.main import run_perf_benchmark (确保导入安全)
-#         # output = run_perf_benchmark(task_cfg) # 这假设函数返回字符串或者有方法捕获其输出
-#         # 
-#         # 另一种方式，如果它是一个命令行工具，则通过 subprocess 调用
-#         # 并将 task_cfg 参数转换为命令行参数
-        
-#         # 临时将 task_cfg 转换为字符串参数传递（evalscope 需要支持这种方式）
-#         args_list = []
-#         for key, value in task_cfg.items():
-#             args_list.append(f"--{key}")
-#             args_list.append(str(value))
-        
-#         # 需要确定 evalscope.perf.main 的可执行路径
-#         # 这里假设它是一个可以通过 python -m 调用的模块
-#         process = subprocess.Popen(
-#             ['python', '-m', 'evalscope.perf.main'] + args_list,
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             text=True
-#         )
-#         stdout, stderr = process.communicate(timeout=600) # 设置超时，例如10分钟
-        
-#         if process.returncode != 0:
-#             current_app.logger.error(f"run_perf_benchmark failed with stderr: {stderr}")
-#             raise Exception(f"性能评估脚本执行失败: {stderr}")
-#         return stdout
-#     except subprocess.TimeoutExpired:
-#         current_app.logger.error("run_perf_benchmark timed out")
-#         raise Exception("性能评估脚本执行超时")
-#     except Exception as e:
-#         current_app.logger.error(f"Error running run_perf_benchmark: {e}")
-#         raise e
-
-# 注意: 异步执行 (Celery) 和更健壮的 run_perf_benchmark 调用是后续优化的重点 

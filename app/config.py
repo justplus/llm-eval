@@ -25,4 +25,36 @@ class Config:
 
     DEFAULT_MODEL_API_KEY = os.environ.get('DEFAULT_MODEL_API_KEY')
 
-    # You can add other configurations here, e.g., for email, etc.    
+    # You can add other configurations here, e.g., for email, etc.
+
+class DevelopmentConfig(Config):
+    """开发环境配置"""
+    DEBUG = True
+    DEVELOPMENT = True
+    
+    # 开发环境下启用更详细的日志
+    SQLALCHEMY_ECHO = os.environ.get('SQLALCHEMY_ECHO', 'False').lower() == 'true'
+    
+    # 开发环境下的模板自动重载
+    TEMPLATES_AUTO_RELOAD = True
+    
+    # 发送文件的缓存超时时间（开发环境设为1秒，便于调试静态文件）
+    SEND_FILE_MAX_AGE_DEFAULT = 1
+
+class ProductionConfig(Config):
+    """生产环境配置"""
+    DEBUG = False
+    DEVELOPMENT = False
+    
+    # 生产环境下禁用模板自动重载
+    TEMPLATES_AUTO_RELOAD = False
+    
+    # 生产环境下的静态文件缓存时间
+    SEND_FILE_MAX_AGE_DEFAULT = 31536000  # 1年
+
+# 配置映射
+config = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}    

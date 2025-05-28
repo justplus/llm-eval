@@ -44,9 +44,17 @@
                         <select name="model_id" class="select select-bordered w-full" required>
                             <option value="">请选择要评估的自定义模型</option>
                             {% for model in custom_models %}
-                                <option value="{{ model.id }}">{{ model.display_name }}</option>
+                                <option value="{{ model.id }}">{{ model.display_name }}{% if not model.is_validated %} (未验证){% endif %}</option>
                             {% endfor %}
                         </select>
+                        {% if not custom_models %}
+                        <label class="label">
+                            <span class="label-text-alt text-warning">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                您还没有创建任何自定义模型，请先在模型管理中创建模型。
+                            </span>
+                        </label>
+                        {% endif %}
                     </div>
                     
                     <!-- 裁判模型 -->

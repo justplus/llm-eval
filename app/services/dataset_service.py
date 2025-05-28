@@ -138,6 +138,7 @@ class DatasetService:
                 split=split,
                 namespace='modelscope'
             )
+            print(dataset[0])
             
             # 计算总数据量
             total_items = len(dataset)

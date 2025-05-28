@@ -296,7 +296,7 @@ forceDeleteModal.addEventListener('click', function(event) {
 // 切换数据集启用/禁用状态
 function toggleDatasetActive(datasetId, isActive) {
     // 使用fetch API发送POST请求
-    fetch(`/datasets/api/dataset/${datasetId}/toggle_active`, {
+    fetch(`/datasets/${datasetId}/toggle_active`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -454,7 +454,7 @@ function deleteDataset(datasetId, force = false) {
     
     const requestBody = force ? { force: true } : {};
     
-    fetch(`/datasets/api/dataset/${datasetId}/delete`, {
+    fetch(`/datasets/${datasetId}/delete`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',

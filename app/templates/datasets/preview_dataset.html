@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
         paginationContainer.style.display = 'none';
         
         // 构建API URL
-        const apiUrl = `/datasets/api/dataset/${datasetId}/data?subset=${encodeURIComponent(currentSubset)}&split=${encodeURIComponent(currentSplit)}&page=${page}`;
+        const apiUrl = `/datasets/${datasetId}/data?subset=${encodeURIComponent(currentSubset)}&split=${encodeURIComponent(currentSplit)}&page=${page}`;
         
         // 发送AJAX请求
         fetch(apiUrl)
@@ -302,23 +302,17 @@ document.addEventListener('DOMContentLoaded', function() {
             indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
             tr.appendChild(indexTd);
             
-            // 添加系统提示列
-            const systemTd = document.createElement('td');
-            systemTd.textContent = item.system || '-';
-            systemTd.title = item.system || '-';
-            tr.appendChild(systemTd);
+            // 使用固定的字段顺序或服务器返回的字段顺序
+            const expectedFields = ['system', 'query', 'response'];
+            const fields = data.field_order || expectedFields;
             
-            // 添加问题列
-            const queryTd = document.createElement('td');
-            queryTd.textContent = item.query || '-';
-            queryTd.title = item.query || '-';
-            tr.appendChild(queryTd);
-            
-            // 添加回答列
-            const responseTd = document.createElement('td');
-            responseTd.textContent = item.response || '-';
-            responseTd.title = item.response || '-';
-            tr.appendChild(responseTd);
+            fields.forEach(field => {
+                const td = document.createElement('td');
+                const value = item[field];
+                td.textContent = value !== null && value !== undefined ? value : '-';
+                td.title = value !== null && value !== undefined ? value : '-';
+                tr.appendChild(td);
+            });
             
             qaTableBody.appendChild(tr);
         });
@@ -330,25 +324,32 @@ document.addEventListener('DOMContentLoaded', function() {
         qaDataContainer.style.display = 'none';
         fillDataContainer.style.display = 'none';
         
-        // 清空并更新表头
-        // 保留 #, 问题, 正确答案 列
-        while (mcqTableHeader.children.length > 3) {
-            mcqTableHeader.removeChild(mcqTableHeader.lastChild);
-        }
+        // 清空表头
+        mcqTableHeader.innerHTML = '';
         
-        // 检查并添加选项列 (A, B, C...)
-        if (data.data && data.data.length > 0) {
-            const firstItem = data.data[0];
-            const optionColumns = Object.keys(firstItem).filter(key => /^[A-J]$/.test(key));
+        // 如果有数据，根据服务器返回的字段顺序生成表头
+        if (data.data && data.data.length > 0 && data.field_order) {
+            const fields = data.field_order; // 使用服务器返回的字段顺序
             
-            // 找到正确答案列的位置
-            const answerColIndex = mcqTableHeader.children.length - 1;
+            // 添加序号列
+            const indexTh = document.createElement('th');
+            indexTh.textContent = '#';
+            indexTh.className = 'w-16';
+            mcqTableHeader.appendChild(indexTh);
             
-            // 在问题和正确答案之间插入选项列
-            optionColumns.sort().forEach(option => {
+            // 为每个字段添加表头
+            fields.forEach(field => {
                 const th = document.createElement('th');
-                th.textContent = `选项${option}`;
-                mcqTableHeader.insertBefore(th, mcqTableHeader.children[answerColIndex]);
+                th.textContent = field;
+                mcqTableHeader.appendChild(th);
+            });
+        } else {
+            // 如果没有数据，显示默认表头
+            const defaultHeaders = ['#', '字段'];
+            defaultHeaders.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                mcqTableHeader.appendChild(th);
             });
         }
         
@@ -364,28 +365,21 @@ document.addEventListener('DOMContentLoaded', function() {
             indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
             tr.appendChild(indexTd);
             
-            // 添加问题列
-            const questionTd = document.createElement('td');
-            questionTd.textContent = item.question || '-';
-            questionTd.title = item.question || '-';
-            tr.appendChild(questionTd);
-            
-            // 添加选项列 (A-J)
-            for (let option of 'ABCDEFGHIJ') {
-                if (option in item) {
-                    const optionTd = document.createElement('td');
-                    optionTd.textContent = item[option] || '-';
-                    optionTd.title = item[option] || '-';
-                    tr.appendChild(optionTd);
+            // 使用服务器返回的字段顺序添加数据列
+            const fields = data.field_order || Object.keys(item);
+            fields.forEach(field => {
+                const td = document.createElement('td');
+                const value = item[field];
+                td.textContent = value !== null && value !== undefined ? value : '-';
+                td.title = value !== null && value !== undefined ? value : '-';
+                
+                // 如果字段名包含answer或类似的关键词，添加特殊样式
+                if (field.toLowerCase().includes('answer') || field.toLowerCase().includes('correct')) {
+                    td.className = 'font-bold text-success';
                 }
-            }
-            
-            // 添加正确答案列
-            const answerTd = document.createElement('td');
-            answerTd.textContent = item.answer || '-';
-            answerTd.className = 'font-bold text-success';
-            answerTd.title = item.answer || '-';
-            tr.appendChild(answerTd);
+                
+                tr.appendChild(td);
+            });
             
             mcqTableBody.appendChild(tr);
         });
@@ -408,6 +402,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const indexTd = document.createElement('td');
             indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
             tr.appendChild(indexTd);
+            
+            // 对于FILL格式，我们仍然使用特殊的处理逻辑来组合history和question
+            // 但也支持使用服务器返回的字段顺序
             
             // 添加题目列 - 拼接history和question
             const questionTd = document.createElement('td');

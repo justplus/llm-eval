@@ -82,18 +82,22 @@ class GeneralIntentAdapter(DataAdapter):
     
     def compute_metric(self, review_res_list: Union[List[dict], List[List[dict]]], **kwargs) -> List[dict]:
         intent_correct_count = 0
-        slots_scores = []
-        total_slots = 0
-        total_correct_slots = 0
+        all_tp = 0
+        all_fp = 0
+        all_fn = 0
         for item in review_res_list:
             if item["intent_result"]:
                 intent_correct_count += 1
-                total_slots += item["slots_result"]["correct_count"] + item["slots_result"]["miss_count"] + item["slots_result"]["fail_count"]
-                total_correct_slots += item["slots_result"]["correct_count"]
+                all_tp += item["slots_result"]["correct_count"]
+                all_fp += item["slots_result"]["fail_count"]
+                all_fn += item["slots_result"]["miss_count"]
 
+        precision = all_tp / (all_tp + all_fp + 1e-10)
+        recall = all_tp / (all_tp + all_fn + 1e-10)
+        f1 = 2 * precision * recall / (precision + recall + 1e-10)
         return [
             {'metric_name': 'intent_correct_score', 'score': 0 if len(review_res_list) ==0 else intent_correct_count * 1.0 /len(review_res_list), 'num': len(review_res_list)}, 
-            {'metric_name': 'slot_corret_score', 'score': 0 if total_slots == 0 else total_correct_slots / total_slots, 'num': total_slots}
+            {'metric_name': 'slot_f1', 'score': f1, 'num': all_fn+all_fp+all_tp}
         ]
 
 

@@ -14,6 +14,8 @@
             {{ field(class='textarea textarea-bordered h-24 ' + class, placeholder=placeholder, **common_attrs) }}
         {% elif field.type == 'FloatField' %}
              {{ field(class='input input-bordered w-full ' + class, type='number', placeholder=placeholder, **common_attrs) }}
+        {% elif field.type == 'FileField' %}
+            {{ field(class='file-input file-input-bordered file-input-primary w-full ' + class, **common_attrs) }}
         {% else %}
             {{ field(class='input input-bordered w-full ' + class, type=type, placeholder=placeholder, **common_attrs) }}
         {% endif %}
@@ -24,6 +26,11 @@
                         {{ error }}<br>
                     {% endfor %}
                 </span>
+            </label>
+        {% endif %}
+        {% if field.description %}
+            <label class="label pt-0">
+                <span class="label-text-alt">{{ field.description }}</span>
             </label>
         {% endif %}
     </div>

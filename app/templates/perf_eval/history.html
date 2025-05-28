@@ -2,59 +2,208 @@
 
 {% block title %}{{ super() }} - {{ title }}{% endblock %}
 
+{% block head_extra %}
+<style>
+    /* 表格垂直居中对齐 */
+    .table td {
+        vertical-align: middle;
+    }
+    
+    /* 确保操作按钮容器有足够的高度 */
+    .table td .flex {
+        min-height: 2.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="card bg-base-100 shadow-xl mb-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">
+            <i class="fas fa-history mr-2"></i>性能评估历史
+        </h1>
+        <a href="{{ url_for('perf_eval.create') }}" class="btn btn-primary">
+            <i class="fas fa-plus mr-2"></i>创建新评估
+        </a>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-            <h2 class="card-title text-xl mb-4">历史评估任务</h2>
             {% if history_tasks %}
             <div class="overflow-x-auto">
                 <table class="table table-zebra w-full">
                     <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>模型名称</th>
-                            <th>数据集</th>
-                            <th>并发数</th>
-                            <th>请求数</th>
-                            <th>状态</th>
-                            <th>创建时间</th>
-                            <th>完成时间</th>
-                            <th>操作</th>
+                        <tr class="bg-base-200">
+                            <th class="text-center">
+                                <i class="fas fa-hashtag mr-1"></i>ID
+                            </th>
+                            <th>
+                                <i class="fas fa-robot mr-1"></i>模型名称
+                            </th>
+                            <th>
+                                <i class="fas fa-database mr-1"></i>数据集
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-layer-group mr-1"></i>并发数
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-paper-plane mr-1"></i>请求数
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-info-circle mr-1"></i>状态
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-clock mr-1"></i>创建时间
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-check-circle mr-1"></i>完成时间
+                            </th>
+                            <th class="text-center">
+                                <i class="fas fa-cogs mr-1"></i>操作
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for task in history_tasks %}
-                        <tr>
-                            <td>{{ task.id }}</td>
-                            <td>{{ task.model_name }}</td>
-                            <td>{{ task.dataset_name }}</td>
-                            <td>{{ task.concurrency }}</td>
-                            <td>{{ task.num_requests }}</td>
-                            <td>
+                        <tr class="hover align-middle">
+                            <td class="text-center font-mono font-bold align-middle">
+                                <span class="badge badge-outline">{{ task.id }}</span>
+                            </td>
+                            <td class="font-medium align-middle">
+                                <div class="flex items-center">
+                                    <i class="fas fa-microchip mr-2 text-primary"></i>
+                                    {{ task.model_name }}
+                                </div>
+                            </td>
+                            <td class="align-middle">
+                                <div class="flex items-center">
+                                    <i class="fas fa-file-alt mr-2 text-accent"></i>
+                                    {{ task.dataset_name }}
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                <span class="badge badge-secondary">{{ task.concurrency }}</span>
+                            </td>
+                            <td class="text-center align-middle">
+                                <span class="badge badge-accent">{{ task.num_requests }}</span>
+                            </td>
+                            <td class="text-center align-middle">
                                 <span class="badge 
                                     {% if task.status == 'completed' %}badge-success
                                     {% elif task.status == 'running' %}badge-info
                                     {% elif task.status == 'pending' %}badge-warning
                                     {% elif task.status == 'failed' %}badge-error
                                     {% else %}badge-ghost{% endif %}
-                                ">{{ task.status }}</span>
+                                ">
+                                    {% if task.status == 'completed' %}
+                                        <i class="fas fa-check mr-1"></i>
+                                    {% elif task.status == 'running' %}
+                                        <i class="fas fa-spinner fa-spin mr-1"></i>
+                                    {% elif task.status == 'pending' %}
+                                        <i class="fas fa-clock mr-1"></i>
+                                    {% elif task.status == 'failed' %}
+                                        <i class="fas fa-times mr-1"></i>
+                                    {% endif %}
+                                    {{ task.status }}
+                                </span>
                             </td>
-                            <td>{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') if task.created_at else 'N/A' }} UTC</td>
-                            <td>{{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else 'N/A' }} UTC</td>
-                            <td class="space-x-2">
-                                <a href="{{ url_for('perf_eval.results', task_id=task.id, source='history') }}" class="btn btn-sm btn-outline btn-info">查看结果</a>
-                                <form method="POST" action="{{ url_for('perf_eval.delete_task', task_id=task.id, source='history') }}" style="display:inline;" onsubmit="return confirm('确定要删除这个评估任务吗？');">
-                                    <button type="submit" class="btn btn-sm btn-outline btn-error">删除</button>
-                                </form>
+                            <td class="text-center font-mono text-sm align-middle">
+                                {% if task.created_at %}
+                                    <div>{{ task.created_at.strftime('%Y-%m-%d') }}</div>
+                                    <div class="text-xs opacity-70">{{ task.created_at.strftime('%H:%M:%S') }}</div>
+                                {% else %}
+                                    <span class="text-base-content/50">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center font-mono text-sm align-middle">
+                                {% if task.completed_at %}
+                                    <div>{{ task.completed_at.strftime('%Y-%m-%d') }}</div>
+                                    <div class="text-xs opacity-70">{{ task.completed_at.strftime('%H:%M:%S') }}</div>
+                                {% else %}
+                                    <span class="text-base-content/50">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="flex justify-center items-center space-x-2 h-full">
+                                    <a href="{{ url_for('perf_eval.results', task_id=task.id, source='history') }}" 
+                                       class="btn btn-sm btn-outline btn-info" 
+                                       data-tip="查看详细结果">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline btn-error" 
+                                            data-tip="删除任务"
+                                            onclick="showConfirmationModal(
+                                                document.getElementById('delete-form-{{ task.id }}'),
+                                                '确认删除任务',
+                                                '确定要删除评估任务 <strong>#{{ task.id }}</strong> 吗？<br><span class=&quot;text-sm opacity-70&quot;>此操作无法撤销，将永久删除该任务的所有数据。</span>',
+                                                '删除',
+                                                'btn-error'
+                                            )">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <form id="delete-form-{{ task.id }}" method="POST" 
+                                          action="{{ url_for('perf_eval.delete_task', task_id=task.id, source='history') }}" 
+                                          style="display:none;">
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            
+            <!-- 统计信息 -->
+            <div class="mt-6 stats shadow">
+                <div class="stat">
+                    <div class="stat-figure text-primary">
+                        <i class="fas fa-tasks text-2xl"></i>
+                    </div>
+                    <div class="stat-title">总任务数</div>
+                    <div class="stat-value text-primary">{{ history_tasks|length }}</div>
+                </div>
+                
+                <div class="stat">
+                    <div class="stat-figure text-success">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                    <div class="stat-title">已完成</div>
+                    <div class="stat-value text-success">
+                        {{ history_tasks|selectattr('status', 'equalto', 'completed')|list|length }}
+                    </div>
+                </div>
+                
+                <div class="stat">
+                    <div class="stat-figure text-info">
+                        <i class="fas fa-spinner text-2xl"></i>
+                    </div>
+                    <div class="stat-title">运行中</div>
+                    <div class="stat-value text-info">
+                        {{ history_tasks|selectattr('status', 'equalto', 'running')|list|length }}
+                    </div>
+                </div>
+                
+                <div class="stat">
+                    <div class="stat-figure text-error">
+                        <i class="fas fa-exclamation-triangle text-2xl"></i>
+                    </div>
+                    <div class="stat-title">失败</div>
+                    <div class="stat-value text-error">
+                        {{ history_tasks|selectattr('status', 'equalto', 'failed')|list|length }}
+                    </div>
+                </div>
+            </div>
+            
             {% else %}
-            <p>暂无历史评估任务。</p>
+            <div class="text-center py-12">
+                <i class="fas fa-inbox text-6xl text-base-content/30 mb-4"></i>
+                <h3 class="text-xl font-semibold mb-2">暂无历史评估任务</h3>
+                <p class="text-base-content/70 mb-6">您还没有创建任何性能评估任务</p>
+                <a href="{{ url_for('perf_eval.create') }}" class="btn btn-primary">
+                    <i class="fas fa-plus mr-2"></i>创建第一个评估任务
+                </a>
+            </div>
             {% endif %}
         </div>
     </div>
