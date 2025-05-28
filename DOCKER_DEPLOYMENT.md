@@ -65,10 +65,11 @@ docker-compose logs -f web
 
 ### Flask Web应用服务
 
-- **基础镜像**: python:3.9-slim
+- **基础镜像**: python:3.12-slim
 - **端口**: 5000
 - **工作目录**: /app
 - **启动方式**: Gunicorn (4个worker进程)
+- **数据库连接**: 使用PyMySQL（纯Python实现，无需系统级MySQL库）
 
 ## 数据库初始化
 

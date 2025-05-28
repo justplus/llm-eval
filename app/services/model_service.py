@@ -1,7 +1,6 @@
 from flask import current_app
 from app import db
 from app.models import AIModel, User
-from app.utils.encryption import encrypt_data, decrypt_data
 from flask_login import current_user
 import requests
 from datetime import datetime, timezone, timedelta
@@ -209,7 +208,7 @@ def get_model_by_id_for_user(model_id, user):
 def create_user_model(data, user):
     """Creates a new model for the given user."""
     api_key = data.pop('api_key', None)
-    encrypted_api_key = encrypt_data(api_key) if api_key else None
+    encrypted_api_key = api_key
     
     new_model = AIModel(
         user_id=user.id,
@@ -249,7 +248,7 @@ def update_user_model(model, data):
     model.notes = data.get('notes')
 
     if 'api_key' in data and data['api_key']:
-        model.encrypted_api_key = encrypt_data(data['api_key'])
+        model.encrypted_api_key = data['api_key']
         model.is_validated = False
     
     db.session.add(model)
@@ -283,7 +282,7 @@ def validate_model_connectivity(model):
     if model.is_system_model:
         api_key_to_use = _get_system_provider_api_key()
     elif model.encrypted_api_key:
-        decrypted_key = decrypt_data(model.encrypted_api_key)
+        decrypted_key = model.encrypted_api_key
         if decrypted_key == "[decryption_error]":
              return False, "API Key decryption failed. Check encryption key configuration."
         api_key_to_use = decrypted_key
@@ -334,7 +333,7 @@ def get_decrypted_api_key(model):
         return _get_system_provider_api_key()
     if model.encrypted_api_key:
         try:
-            return decrypt_data(model.encrypted_api_key)
+            return model.encrypted_api_key
         except Exception as e:
             current_app.logger.error(f"Failed to decrypt API key for model {model.id}: {e}")
             return "[decryption_error]"
