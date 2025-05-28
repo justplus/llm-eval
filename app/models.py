@@ -225,3 +225,97 @@ class PerformanceEvalTask(db.Model):
 
     def __repr__(self):
         return f'<PerformanceEvalTask {self.id} for model {self.model_name} on dataset {self.dataset_name}>' 
+
+def init_database_data():
+    """
+    初始化数据库数据
+    只在数据库为空时执行，避免重复插入
+    """
+    from app import db
+    
+    # 检查是否已有数据集分类数据
+    if DatasetCategory.query.count() == 0:
+        print("正在初始化数据集分类...")
+        categories = [
+            (21, '函数调用'),
+            (9, '创作'),
+            (5, '多模态'),
+            (19, '多轮对话'),
+            (1, '学科'),
+            (17, '安全'),
+            (13, '推理'),
+            (11, '数学'),
+            (7, '理解'),
+            (3, '知识'),
+            (23, '综合'),
+            (15, '语言'),
+        ]
+        
+        for cat_id, cat_name in categories:
+            category = DatasetCategory(id=cat_id, name=cat_name)
+            db.session.add(category)
+        
+        try:
+            db.session.commit()
+            print("数据集分类初始化完成")
+        except Exception as e:
+            db.session.rollback()
+            print(f"数据集分类初始化失败: {e}")
+    
+    # 检查是否已有系统数据集数据
+    if SystemDataset.query.count() == 0:
+        print("正在初始化系统数据集...")
+        datasets = [
+            {
+                'id': 1,
+                'name': 'CMMLU',
+                'description': 'CMMLU是一个综合性的中文评估基准，专门用于评估语言模型在中文语境下的知识和推理能力。CMMLU涵盖了从基础学科到高级专业水平的67个主题。',
+                'publish_date': '2025-05-01',
+                'source': '公开数据集',
+                'download_url': 'modelscope/cmmlu',
+                'dataset_info': '[]',
+                'dataset_type': '系统',
+                'visibility': '公开',
+                'format': 'QA',
+                'is_active': False
+            },
+            {
+                'id': 3,
+                'name': 'E-EVAL',
+                'description': 'E-EVAL 是首个专门针对中国 K-12 教育的综合评估基准。E-EVAL 包含 4,351 道选择题，涵盖小学、初中和高中各个年级，涉及多种学科。',
+                'publish_date': '2025-05-01',
+                'source': '公开数据集',
+                'download_url': '#',
+                'dataset_info': '[]',
+                'dataset_type': '系统',
+                'visibility': '公开',
+                'format': 'MCQ',
+                'is_active': False
+            },
+            {
+                'id': 5,
+                'name': 'ceval',
+                'description': 'C-Eval 是一个全面的中文基础模型评估套件。它包含了13948个多项选择题，涵盖了52个不同的学科和四个难度级别。',
+                'publish_date': '2025-05-01',
+                'source': '公开数据集',
+                'download_url': 'modelscope/ceval-exam',
+                'dataset_info': '{"computer_network": {"description": "C-Eval is a comprehensive Chinese evaluation suite for foundation models..."}}',
+                'dataset_type': '系统',
+                'visibility': '公开',
+                'format': 'MCQ',
+                'is_active': False
+            }
+        ]
+        
+        for dataset_data in datasets:
+            dataset = SystemDataset(**dataset_data)
+            db.session.add(dataset)
+        
+        try:
+            db.session.commit()
+            print("系统数据集初始化完成")
+        except Exception as e:
+            db.session.rollback()
+            print(f"系统数据集初始化失败: {e}")
+    
+    print("数据库初始化检查完成") 

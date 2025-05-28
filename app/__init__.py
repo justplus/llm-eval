@@ -182,4 +182,14 @@ def create_app(config_name=None):
         flash("服务器内部错误，请稍后重试。", "error")
         return redirect(url_for('main.index'))
 
+    # 添加CLI命令
+    @app.cli.command()
+    def init_db():
+        """初始化数据库数据"""
+        from app.models import init_database_data
+        with app.app_context():
+            db.create_all()
+            init_database_data()
+            print("数据库初始化完成")
+
     return app

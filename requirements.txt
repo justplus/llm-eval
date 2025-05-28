@@ -1,16 +1,33 @@
-Flask
-Flask-SQLAlchemy
-Flask-Migrate
-Flask-Login
-Flask-WTF
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+Flask-Login==0.6.3
+Flask-WTF==1.1.1
+WTForms==3.0.1
 # Pydantic # Not directly used in backend forms for now, can be added if API validation is needed
-requests # For calling model APIs
-python-dotenv
-PyMySQL # For MySQL connection
-cryptography # For API key encryption
-openai # For OpenAI compatible API calls
-modelscope # For dataset handling with ModelScope API
-
+requests==2.31.0 # For calling model APIs
+python-dotenv==1.0.0
+PyMySQL==1.1.0 # For MySQL connection
+cryptography==41.0.7 # For API key encryption
+openai==1.3.7 # For OpenAI compatible API calls
+modelscope==1.9.5 # For dataset handling with ModelScope API
+evalscope==0.4.3
+# 数据处理相关
+pandas==2.1.3
+numpy==1.24.4
+# Web服务器
+gunicorn==21.2.0
+# 其他必要依赖
+Werkzeug==2.3.7
+Jinja2==3.1.2
+MarkupSafe==2.1.3
+itsdangerous==2.1.2
+click==8.1.7
+blinker==1.6.3
+# 用于处理文件上传
+Pillow==10.1.0
+# 用于JSON处理
+simplejson==3.19.2
 # For development (optional, but recommended)
 # Flask-Testing
 # pytest 
