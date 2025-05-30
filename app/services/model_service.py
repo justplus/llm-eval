@@ -1,12 +1,9 @@
 from flask import current_app
 from app import db
-from app.models import AIModel, User
+from app.models import AIModel
 from flask_login import current_user
 import requests
-from datetime import datetime, timezone, timedelta
 from app.utils import get_beijing_time
-from cryptography.fernet import Fernet
-import base64
 
 # --- System Models Cache ---
 _system_models_cache = {"data": None, "last_fetched_utc": None}

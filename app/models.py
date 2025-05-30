@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy.dialects.mysql import LONGTEXT
 import json
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Table, Column, Integer, ForeignKey, Text as LONGTEXT
+from sqlalchemy import Table, Column, Integer, ForeignKey
 from app.utils import get_beijing_time
 
 @login_manager.user_loader
