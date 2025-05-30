@@ -161,13 +161,13 @@
                         {% endif %}
                     {% endfor %}
                     
-                    {% if percentile_data and 'Percentile' in percentile_data %}
+                    {% if percentile_data and 'Percentiles' in percentile_data %}
                     <table class="table table-zebra w-full">
                         <thead>
                             <tr>
                                 <th class="text-center">百分位</th>
                                 {% for key in percentile_data.keys() %}
-                                    {% if key != 'Percentile' %}
+                                    {% if key != 'Percentiles' %}
                                     <th class="text-center">
                                         <span class="percentile-header" onclick="showPercentileExplanation('{{ key }}')">
                                             {{ key }}
@@ -178,13 +178,13 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for i in range(percentile_data['Percentile']|length) %}
+                            {% for i in range(percentile_data['Percentiles']|length) %}
                             <tr>
                                 <td class="text-center font-bold">
-                                    <span class="badge badge-outline">{{ percentile_data['Percentile'][i] }}</span>
+                                    <span class="badge badge-outline">{{ percentile_data['Percentiles'][i] }}</span>
                                 </td>
                                 {% for key, values in percentile_data.items() %}
-                                    {% if key != 'Percentile' and i < values|length %}
+                                    {% if key != 'Percentiles' and i < values|length %}
                                     <td class="text-center font-mono">
                                         {% set value = values[i].strip() %}
                                         {% if 'TTFT' in key or 'ITL' in key or 'TPOT' in key or 'Latency' in key %}

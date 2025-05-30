@@ -75,7 +75,7 @@ class PerformanceEvaluationService:
             header_found = False
             for i, line in enumerate(lines):
                 stripped_line = line.strip()
-                if not header_found and "Percentile" in stripped_line and "TTFT (s)" in stripped_line: # 找到表头行
+                if not header_found and "Percentiles" in stripped_line and "TTFT (s)" in stripped_line: # 找到表头行
                     header_line = stripped_line
                     header_found = True
                 elif header_found and stripped_line.startswith('|') and "---" not in stripped_line and len(stripped_line.split('|')) > 3:
@@ -253,7 +253,15 @@ class PerformanceEvaluationService:
                                         raw_output = f"Benchmarking summary:\n"
                                         raw_output += "\n".join([f"{k}: {v}" for k, v in summary.items()]) + "\n\n"
                                         raw_output += "Percentile results:\n"
-                                        raw_output += json.dumps(percentiles, indent=2)
+                                        # 格式化百分位结果
+                                        if percentiles and isinstance(percentiles, dict) and 'Percentiles' in percentiles:
+                                            headers = list(percentiles.keys())
+                                            for i in range(len(percentiles['Percentiles'])):
+                                                row = []
+                                                for h in headers:
+                                                    if i < len(percentiles[h]):
+                                                        row.append(f"{h}: {percentiles[h][i]}")
+                                                raw_output += ", ".join(row) + "\n"
                                         
                                         # 更新任务结果
                                         task.summary_results = summary_text
@@ -357,7 +365,7 @@ class PerformanceEvaluationService:
         """将百分位数据转换为文本格式"""
         # 定义百分位指标的显示顺序
         percentile_order = [
-            'Percentiles',
+            'Percentile',
             'TTFT (s)',
             'ITL (s)',
             'TPOT (s)',
