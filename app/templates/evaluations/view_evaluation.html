@@ -64,7 +64,7 @@
             <!-- 结果摘要 -->
             {% elif evaluation.status == 'completed' and evaluation.result_summary %}
                 <div class="divider"></div>
-                <h3 class="text-lg font-semibold mb-4">评估结果摘要 (EvalScope)</h3>
+                <h3 class="text-lg font-semibold mb-4">评估结果摘要</h3>
                 {% if evaluation.result_summary.get("error") %}
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle mr-2"></i>
