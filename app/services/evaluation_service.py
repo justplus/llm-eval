@@ -6,19 +6,16 @@ from app.models import (
     ModelEvaluationResult, 
     AIModel, 
     SystemDataset, 
-    User
 )
-from datetime import datetime, timezone
 from flask import current_app
 import threading
-from app.services.dataset_service import DatasetService
 from app.services.model_service import get_decrypted_api_key
+from app.utils import get_beijing_time
 
 # Evalscope imports
 from evalscope.run import run_task
 from evalscope.constants import JudgeStrategy
 import os
-import shutil
 import json
 import pandas as pd
 
@@ -58,7 +55,7 @@ class EvaluationService:
         try:
             if not name:
                 model = AIModel.query.get(model_id)
-                name = f"{model.display_name if model else '未知模型'}的评估_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+                name = f"{model.display_name if model else '未知模型'}的评估_{get_beijing_time().strftime('%Y%m%d_%H%M%S')}"
             
             evaluation = ModelEvaluation(
                 user_id=user_id,
@@ -112,7 +109,7 @@ class EvaluationService:
             current_app.logger.info(f"[评估任务 {evaluation_id}] 状态更新为 'running'。")
             
             model_to_evaluate = AIModel.query.get(evaluation.model_id)
-            judge_model_for_evalscope = AIModel.query.get(evaluation.judge_model_id)
+            judge_model_for_evalscope = None if evaluation.judge_model_id is None else AIModel.query.get(evaluation.judge_model_id)
 
             if not model_to_evaluate:
                 evaluation.status = 'failed'
@@ -128,8 +125,6 @@ class EvaluationService:
                 judge_api_url = judge_model_for_evalscope.api_base_url
                 judge_api_key = get_decrypted_api_key(judge_model_for_evalscope)
                 judge_model_identifier = judge_model_for_evalscope.model_identifier
-            else:
-                current_app.logger.warning(f"[评估任务 {evaluation_id}] 未找到指定的裁判模型 ID {evaluation.judge_model_id}，evalscope的裁判功能可能受限。")
 
             eval_dataset_associations = ModelEvaluationDataset.query.filter_by(evaluation_id=evaluation_id).all()
             dataset_names_for_evalscope = []
@@ -157,7 +152,8 @@ class EvaluationService:
                             if 'general_mcq' not in dataset_args:
                                 dataset_args['general_mcq'] = {
                                     "local_path": dataset_dir,
-                                    "subset_list": [dataset_name]
+                                    "subset_list": [dataset_name],
+                                    'filters': {'remove_until': '</think>'} 
                                 }
                             else:
                                 # 如果已存在，添加到subset_list
@@ -177,7 +173,8 @@ class EvaluationService:
                             if 'general_qa' not in dataset_args:
                                 dataset_args['general_qa'] = {
                                     "local_path": dataset_dir,
-                                    "subset_list": [dataset_name]
+                                    "subset_list": [dataset_name],
+                                    'filters': {'remove_until': '</think>'} 
                                 }
                             else:
                                 # 如果已存在，添加到subset_list
@@ -198,7 +195,8 @@ class EvaluationService:
                             if 'general_intent' not in dataset_args:
                                 dataset_args['general_intent'] = {
                                     "local_path": dataset_dir,
-                                    "subset_list": [dataset_name]
+                                    "subset_list": [dataset_name],
+                                    'filters': {'remove_until': '</think>'}
                                 }
                             else:
                                 # 如果已存在，添加到subset_list
@@ -216,7 +214,7 @@ class EvaluationService:
                 current_app.logger.error(f"[评估任务 {evaluation_id}] 失败: 没有提供有效的数据集进行评估。")
                 return
 
-            evalscope_run_timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+            evalscope_run_timestamp = get_beijing_time().strftime('%Y%m%d_%H%M%S')
             base_output_dir = os.path.join('.', 'outputs', f'eval_{evaluation_id}_{evalscope_run_timestamp}') 
             try:
                 os.makedirs(base_output_dir, exist_ok=True)
@@ -434,7 +432,7 @@ class EvaluationService:
                     evaluation.result_summary = evalscope_final_report
 
 
-                evaluation.completed_at = datetime.now(timezone.utc)
+                evaluation.completed_at = get_beijing_time()
                 db.session.commit() # 提交所有更改，包括状态、摘要和详细结果
                 current_app.logger.info(f"[评估任务 {evaluation_id}] 评估任务处理完毕，状态: {evaluation.status}。Summary: {json.dumps(evalscope_final_report, indent=2)}")
 

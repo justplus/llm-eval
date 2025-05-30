@@ -9,6 +9,7 @@ import os  # 添加os模块导入
 from app.adapter.general_intent_adapter import register_genera_intent_benchmark
 # 导入数据集插件，确保@register_dataset装饰器能够正确注册
 from app.adapter.general_intent_dataset_plugin import CustomDatasetPlugin
+from logging.handlers import RotatingFileHandler
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -46,11 +47,71 @@ def create_app(config_name=None):
     
     # 配置日志级别，确保INFO级别的日志能够显示
     app.logger.setLevel(logging.INFO)
+    
+    # 配置文件日志处理器
+    # 确保日志目录存在 - 根据环境自动选择路径
+    # 检查是否在容器内运行
+    if os.path.exists('/app') and os.environ.get('FLASK_ENV') == 'production':
+        # 容器环境：使用容器内的挂载路径
+        log_dir = '/app/logs'
+    else:
+        # 非容器环境：使用相对路径或环境变量配置的路径
+        log_dir = os.environ.get('LOG_DIR', os.path.join(os.getcwd(), 'data', 'logs'))
+    
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    
+    # 配置文件日志处理器（轮转日志，每个文件最大10MB，保留5个备份）
+    file_handler = RotatingFileHandler(
+        os.path.join(log_dir, 'app.log'),
+        maxBytes=10*1024*1024,  # 10MB
+        backupCount=5,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(logging.INFO)
+    
+    # 配置日志格式
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    
+    # 添加文件日志处理器
+    app.logger.addHandler(file_handler)
+    
+    # 配置其他重要模块的日志
+    # 配置数据库相关日志
+    db_logger = logging.getLogger('sqlalchemy')
+    db_logger.setLevel(logging.WARNING)  # 只记录警告和错误
+    db_logger.addHandler(file_handler)
+    
+    # 配置评估服务日志
+    eval_logger = logging.getLogger('app.services.evaluation_service')
+    eval_logger.setLevel(logging.INFO)
+    eval_logger.addHandler(file_handler)
+    
+    # 配置模型服务日志
+    model_logger = logging.getLogger('app.services.model_service')
+    model_logger.setLevel(logging.INFO)
+    model_logger.addHandler(file_handler)
+    
+    # 配置聊天服务日志
+    chat_logger = logging.getLogger('app.services.chat_service')
+    chat_logger.setLevel(logging.INFO)
+    chat_logger.addHandler(file_handler)
+    
+    # 配置根日志记录器，捕获所有未明确配置的日志
+    root_logger = logging.getLogger()
+    if not any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers):
+        root_logger.addHandler(file_handler)
+        root_logger.setLevel(logging.INFO)
+    
+    app.logger.info(f"📝 文件日志配置完成，日志将保存到 {os.path.join(log_dir, 'app.log')}")
+    
     # 如果需要更详细的控制台输出格式，可以添加以下代码
     if not app.debug:
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         stream_handler.setFormatter(formatter)
         app.logger.addHandler(stream_handler)
 
@@ -122,10 +183,10 @@ def create_app(config_name=None):
         return response
 
     # 注册蓝图
-    from app.routes.auth import bp as auth_bp
+    from app.routes.auth_routes import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
-    from app.routes.main import bp as main_bp
+    from app.routes.dashboard_routes import bp as main_bp
     app.register_blueprint(main_bp)
 
     from app.routes.models_routes import bp as models_bp
@@ -142,14 +203,10 @@ def create_app(config_name=None):
     app.register_blueprint(evaluations_bp)
 
     # 注册性能评估蓝图
-    from app.routes.perf_eval import perf_eval_bp
+    from app.routes.perf_eval_routes import perf_eval_bp
     app.register_blueprint(perf_eval_bp)
 
     register_genera_intent_benchmark()
-
-    with app.app_context():
-        from app.services import model_service
-        model_service.sync_system_models()
 
     # 错误处理器，需要正确缩进到create_app函数内部
     @app.errorhandler(400)

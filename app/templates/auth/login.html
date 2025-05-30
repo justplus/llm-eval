@@ -11,7 +11,7 @@
             <p class="py-6">首次登录将使用用户名作为初始密码自动创建账户。登录后请及时修改密码以确保账户安全。</p>
         </div>
         <div class="card shrink-0 w-full max-w-sm shadow-2xl bg-base-200">
-            <form method="POST" action="{{ url_for('auth.login') }}" novalidate class="card-body">
+            <form method="POST" action="{{ url_for('auth.login') }}" novalidate class="card-body" id="loginForm">
                 {{ form.hidden_tag() }}
                 
                 {{ forms.render_field(form.username, placeholder='请输入用户名', required=True) }}
@@ -30,4 +30,75 @@
         </div>
     </div>
 </div>
+{% endblock %} 
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const usernameField = document.getElementById('username');
+    const passwordField = document.getElementById('password');
+    const rememberMeField = document.getElementById('remember_me');
+    const loginForm = document.getElementById('loginForm');
+    
+    // 页面加载时检查并填充保存的账号密码
+    loadSavedCredentials();
+    
+    // 监听记住我复选框的变化
+    rememberMeField.addEventListener('change', function() {
+        if (!this.checked) {
+            // 如果取消勾选记住我，清除保存的账号密码
+            clearSavedCredentials();
+        }
+    });
+    
+    // 监听表单提交
+    loginForm.addEventListener('submit', function(e) {
+        // 如果勾选了记住我，保存账号密码；如果没勾选，清除保存的账号密码
+        if (rememberMeField.checked) {
+            saveCredentials();
+        } else {
+            clearSavedCredentials();
+        }
+    });
+    
+    function saveCredentials() {
+        const username = usernameField.value;
+        const password = passwordField.value;
+        
+        if (username && password) {
+            // 使用Base64编码存储（简单混淆，不是真正的加密）
+            localStorage.setItem('rememberedUsername', btoa(username));
+            localStorage.setItem('rememberedPassword', btoa(password));
+            localStorage.setItem('credentialsRemembered', 'true');
+        }
+    }
+    
+    function loadSavedCredentials() {
+        const remembered = localStorage.getItem('credentialsRemembered');
+        
+        if (remembered === 'true') {
+            const savedUsername = localStorage.getItem('rememberedUsername');
+            const savedPassword = localStorage.getItem('rememberedPassword');
+            
+            if (savedUsername && savedPassword) {
+                try {
+                    // 解码并填充字段
+                    usernameField.value = atob(savedUsername);
+                    passwordField.value = atob(savedPassword);
+                    rememberMeField.checked = true;
+                } catch (e) {
+                    // 如果解码失败，清除保存的数据
+                    clearSavedCredentials();
+                }
+            }
+        }
+    }
+    
+    function clearSavedCredentials() {
+        localStorage.removeItem('rememberedUsername');
+        localStorage.removeItem('rememberedPassword');
+        localStorage.removeItem('credentialsRemembered');
+    }
+});
+</script>
 {% endblock %} 

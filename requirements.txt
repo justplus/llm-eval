@@ -31,3 +31,5 @@ simplejson
 # For development (optional, but recommended)
 # Flask-Testing
 # pytest 
+tiktoken
+omegaconf

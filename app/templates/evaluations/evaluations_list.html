@@ -20,7 +20,6 @@
                         <th>被评估模型</th>
                         <th>状态</th>
                         <th>创建时间</th>
-                        <th>平均分数</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -54,15 +53,6 @@
                                 {% endif %}
                             </td>
                             <td>{{ evaluation.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>
-                                {% if evaluation.result_summary and evaluation.result_summary.average_score is defined %}
-                                    <span class="font-semibold">{{ "%.2f"|format(evaluation.result_summary.average_score) }}</span>/10
-                                {% elif evaluation.status == 'failed' %}
-                                    <span class="text-error">评估失败</span>
-                                {% else %}
-                                    <span class="text-base-content/50">尚未完成</span>
-                                {% endif %}
-                            </td>
                             <td class="flex gap-2">
                                 <a href="{{ url_for('evaluations.view_evaluation', evaluation_id=evaluation.id) }}" class="btn btn-sm btn-outline btn-info">
                                     <i class="fas fa-eye"></i>

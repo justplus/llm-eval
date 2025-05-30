@@ -16,19 +16,28 @@ class DatasetService:
         从dataset_info中提取子数据集和用途信息
         
         Args:
-            dataset_info: 数据集结构信息JSON对象
+            dataset_info: 数据集结构信息JSON对象或JSON字符串
             
         Returns:
             Tuple[List[str], Dict[str, List[str]]]: 子数据集列表和每个子数据集对应的用途列表
-        """
+        """        
         subsets = []
         splits_by_subset = {}
         
+        # 如果 dataset_info 是字符串，先解析为字典
+        if isinstance(dataset_info, str):
+            try:
+                dataset_info = json.loads(dataset_info)
+            except (json.JSONDecodeError, TypeError) as e:
+                # 如果解析失败，返回空结果
+                return subsets, splits_by_subset
+                
         if dataset_info:
             for subset_name, subset_info in dataset_info.items():
                 subsets.append(subset_name)
                 if 'splits' in subset_info:
                     splits_by_subset[subset_name] = list(subset_info['splits'].keys())
+        
         return subsets, splits_by_subset
     
     @staticmethod

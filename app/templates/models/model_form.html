@@ -26,9 +26,9 @@
             
             <div class="form-control">
                 {{ form.api_key.label(class="label") }}
-                {{ form.api_key(class="input input-bordered w-full", type="password", placeholder="如需设置或更新API Key请在此填写") }}
+                {{ form.api_key(class="input input-bordered w-full", placeholder="如需设置或更新API Key请在此填写") }}
                 <label class="label">
-                    <span class="label-text-alt">{{ form.api_key.description }} {% if model and model.encrypted_api_key %}(当前已设置，留空则不修改){% endif %}</span>
+                    <span class="label-text-alt">{{ form.api_key.description }} {% if model and model.encrypted_api_key %}(当前已设置，可修改){% endif %}</span>
                 </label>
                 {% if form.api_key.errors %}
                     <label class="label">
@@ -41,9 +41,9 @@
                 {% endif %}
             </div>
 
-            {{ forms.render_field(form.provider_name, placeholder='例如：OpenAI, Anthropic, Groq 等') }}
+            {{ forms.render_field(form.provider_name, placeholder='例如：OpenAI, Anthropic, Qwen, DeepSeek 等') }}
             
-            {{ forms.render_field(form.default_temperature, placeholder='例如：0.7 (0到2之间)', type='number', html_attrs={'step': '0.1', 'min': '0', 'max': '2'}) }}
+            {{ forms.render_field(form.default_temperature, placeholder='例如：0.7 (0到1之间)', type='number', html_attrs={'step': '0.1', 'min': '0', 'max': '1'}) }}
             
             {{ forms.render_field(form.system_prompt, type='TextAreaField', placeholder='定义模型的默认行为和角色，例如：You are a helpful assistant.') }}
 

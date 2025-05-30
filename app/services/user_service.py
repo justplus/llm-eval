@@ -23,11 +23,11 @@ def create_user(username, password):
         # Log error e
         return None, False
 
-def authenticate_user(username, password):
+def authenticate_user(username, password, remember_me=False):
     """Authenticates a user and logs them in."""
     user = User.query.filter_by(username=username).first()
     if user and user.check_password(password):
-        login_user(user, remember=True) # Can make remember_me a parameter
+        login_user(user, remember=remember_me) # 使用传入的remember_me参数
         return user
     return None
 

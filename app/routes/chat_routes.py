@@ -213,7 +213,13 @@ def send_message(session_id):
                         model_data['is_done'] = True
                         completed_models += 1
                         
-                        final_full_content = chunk_data.get("full_content", "".join(model_data['accumulated_content']))
+                        # 优先使用chat_service返回的full_content（可能包含推理格式）
+                        final_full_content = chunk_data.get("full_content")
+                        if not final_full_content:
+                            final_full_content = "".join(model_data['accumulated_content'])
+                        
+                        # 将最终内容存储用于数据库保存
+                        model_data['final_content'] = final_full_content
                         
                         # 发送最终块事件
                         sse_event = {
@@ -222,26 +228,41 @@ def send_message(session_id):
                             "content_piece": "",
                             "is_final_chunk": True,
                             "full_content": final_full_content,
-                            "settings_snapshot": model_data['settings_snapshot']
+                            "settings_snapshot": model_data['settings_snapshot'],
+                            "has_reasoning": chunk_data.get("has_reasoning", False)
                         }
                         yield f"data: {json.dumps(sse_event)}\n\n"
                     
                     else:
                         content_piece = chunk_data.get("content_piece", "")
+                        reasoning_piece = chunk_data.get("reasoning_piece", "")
+                        
                         if content_piece:
                             model_data['accumulated_content'].append(content_piece)
                         
                         model_data['settings_snapshot'] = chunk_data.get("settings_snapshot")
                         
-                        # 发送内容片段事件
-                        sse_event = {
-                            "model_id": model_id,
-                            "model_name": model_data['name'],
-                            "content_piece": content_piece,
-                            "is_final_chunk": False,
-                            "settings_snapshot": model_data['settings_snapshot']
-                        }
-                        yield f"data: {json.dumps(sse_event)}\n\n"
+                        # 如果有推理内容，发送推理片段事件
+                        if reasoning_piece:
+                            sse_event = {
+                                "model_id": model_id,
+                                "model_name": model_data['name'],
+                                "reasoning_piece": reasoning_piece,
+                                "is_final_chunk": False,
+                                "settings_snapshot": model_data['settings_snapshot']
+                            }
+                            yield f"data: {json.dumps(sse_event)}\n\n"
+                        
+                        # 如果有常规内容，发送内容片段事件
+                        if content_piece:
+                            sse_event = {
+                                "model_id": model_id,
+                                "model_name": model_data['name'],
+                                "content_piece": content_piece,
+                                "is_final_chunk": False,
+                                "settings_snapshot": model_data['settings_snapshot']
+                            }
+                            yield f"data: {json.dumps(sse_event)}\n\n"
                 
                 except StopIteration:
                     # 生成器已经耗尽，但没有接收到最终块标记
@@ -301,7 +322,11 @@ def send_message(session_id):
                     _app.logger.info(f"已记录模型 {model_id} 的系统错误: {error_details}")
                 else:
                     # 保存正常响应
-                    full_assistant_response = "".join(model_data['accumulated_content'])
+                    # 优先使用final_content（包含推理格式），否则使用accumulated_content
+                    full_assistant_response = model_data.get('final_content')
+                    if not full_assistant_response:
+                        full_assistant_response = "".join(model_data['accumulated_content'])
+                    
                     if full_assistant_response:
                         chat_service.add_message_to_session(
                             session_id, 

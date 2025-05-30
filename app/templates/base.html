@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title if title else '大模型评估平台' }}{% endblock %}</title>
+    <!-- 添加favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="mask-icon" href="{{ url_for('static', filename='favicon.svg') }}" color="#000000">
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.1/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script> {# DaisyUI requires Tailwind #}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -47,7 +51,7 @@
                 </a>
             </div>
             <div class="flex-none">
-                <ul class="menu menu-horizontal px-1">
+                <ul class="menu menu-horizontal px-1" style="align-items: center;">
                     {% if current_user and current_user.is_authenticated %}
                         <li><a href="{{ url_for('main.dashboard') }}">仪表盘</a></li>
                         <li><a href="{{ url_for('models.list_models') }}">模型管理</a></li>
@@ -375,6 +379,13 @@
             allDropdowns.forEach(dropdown => {
                 dropdown.removeAttribute('open');
             });
+        }
+        
+        // 清除保存的账号密码（登出时使用）
+        function clearSavedCredentials() {
+            localStorage.removeItem('rememberedUsername');
+            localStorage.removeItem('rememberedPassword');
+            localStorage.removeItem('credentialsRemembered');
         }
         
         // 页面加载时初始化主题

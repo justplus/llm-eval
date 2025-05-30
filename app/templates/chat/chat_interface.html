@@ -66,6 +66,42 @@
         border-radius: 0.5rem;
         margin-right: 0.375rem;
     }
+
+    /* 推理模型思考过程样式 */
+    .thinking-container {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+    .thinking-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.875rem;
+    }
+    .thinking-content {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: #4b5563;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    .thinking-toggle {
+        cursor: pointer;
+        user-select: none;
+    }
+    .thinking-content.collapsed {
+        display: none;
+    }
+    .answer-content {
+        margin-top: 0.5rem;
+    }
 </style>
 {% endblock %}
 
@@ -216,7 +252,83 @@ document.addEventListener('DOMContentLoaded', function () {
     const initialMessageBubbles = messagesContainer.querySelectorAll('.chat-message .chat-bubble:not(#typing-indicator-container .chat-bubble)');
     initialMessageBubbles.forEach(bubble => {
         const rawMarkdown = bubble.innerHTML;
-        bubble.innerHTML = marked.parse(rawMarkdown.trim());
+        
+        // 解码HTML实体
+        function decodeHtmlEntities(text) {
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = text;
+            return textarea.value;
+        }
+        
+        const decodedMarkdown = decodeHtmlEntities(rawMarkdown);
+        
+        // 检查是否包含推理格式 <think>xxx</think><answer>xxx</answer>
+        // 处理可能的双重think标签: <think><think>content</think>
+        let thinkAnswerRegex = /<think.*?>([\s\S]*?)<\/think><answer>([\s\S]*?)<\/answer>/;
+        let match = decodedMarkdown.match(thinkAnswerRegex);
+        
+        // 如果第一个正则不匹配，尝试第二个
+        if (!match) {
+            thinkAnswerRegex = /<think>([\s\S]*?)<\/think><answer>([\s\S]*?)<\/answer>/;
+            match = decodedMarkdown.match(thinkAnswerRegex);
+        }
+        
+        console.log('推理内容匹配结果:', match);
+        console.log('解码后内容前200字符:', decodedMarkdown.substring(0, 200));
+        console.log('是否包含<think>:', decodedMarkdown.includes('<think>'));
+        console.log('是否包含</think>:', decodedMarkdown.includes('</think>'));
+        console.log('是否包含<answer>:', decodedMarkdown.includes('<answer>'));
+        console.log('是否包含</answer>:', decodedMarkdown.includes('</answer>'));
+        
+        if (match && match[1] && match[2]) {
+            // 有推理内容，创建特殊布局
+            const thinkingText = match[1].trim();
+            const answerText = match[2].trim();
+            
+            // 清空气泡内容
+            bubble.innerHTML = '';
+            
+            // 创建思考过程容器
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.classList.add('thinking-container');
+            
+            const thinkingHeader = document.createElement('div');
+            thinkingHeader.classList.add('thinking-header', 'thinking-toggle');
+            thinkingHeader.innerHTML = '<i class="fas fa-brain mr-2"></i>💭 思考过程 <i class="fas fa-chevron-down ml-auto"></i>';
+            
+            const thinkingContent = document.createElement('div');
+            thinkingContent.classList.add('thinking-content', 'collapsed');
+            thinkingContent.textContent = thinkingText;
+            
+            thinkingContainer.appendChild(thinkingHeader);
+            thinkingContainer.appendChild(thinkingContent);
+            
+            // 添加点击折叠功能
+            thinkingHeader.addEventListener('click', () => {
+                const isCollapsed = thinkingContent.classList.contains('collapsed');
+                // 更健壮的图标查找：查找最后一个 i 元素（chevron图标）
+                const chevron = thinkingHeader.querySelector('i:last-child');
+                if (isCollapsed) {
+                    thinkingContent.classList.remove('collapsed');
+                    chevron.className = 'fas fa-chevron-up ml-auto';
+                } else {
+                    thinkingContent.classList.add('collapsed');
+                    chevron.className = 'fas fa-chevron-down ml-auto';
+                }
+            });
+            
+            // 创建答案容器
+            const answerContainer = document.createElement('div');
+            answerContainer.classList.add('answer-content');
+            answerContainer.innerHTML = marked.parse(answerText);
+            
+            // 添加到气泡
+            bubble.appendChild(thinkingContainer);
+            bubble.appendChild(answerContainer);
+        } else {
+            // 没有推理内容，正常处理
+            bubble.innerHTML = marked.parse(decodedMarkdown.trim());
+        }
     });
     
     // 保存模型配置
@@ -811,17 +923,87 @@ document.addEventListener('DOMContentLoaded', function () {
                                 // 记录接收到的内容片段
                                 console.debug(`收到模型 ${eventData.model_name} 的内容: "${eventData.content_piece}"`);
                                 
-                                // 解析并渲染Markdown
-                                let markdownToParse = elements.rawMarkdown;
-                                const mdBlockRegex = /^```markdown\s*\n([\s\S]*?)\s*\n```$/;
-                                const match = markdownToParse.match(mdBlockRegex);
-                                if (match && match[1]) markdownToParse = match[1];
-                                
-                                // 使用requestAnimationFrame确保UI更新不被阻塞
-                                requestAnimationFrame(() => {
-                                    elements.bubble.innerHTML = marked.parse(markdownToParse);
+                                // 如果已经有思考过程容器，只更新答案部分
+                                if (elements.thinkingContainer) {
+                                    // 确保有答案容器
+                                    if (!elements.answerContainer) {
+                                        elements.answerContainer = document.createElement('div');
+                                        elements.answerContainer.classList.add('answer-content');
+                                        elements.bubble.appendChild(elements.answerContainer);
+                                    }
+                                    
+                                    // 解析并渲染答案内容
+                                    let markdownToParse = elements.rawMarkdown;
+                                    const mdBlockRegex = /^```markdown\s*\n([\s\S]*?)\s*\n```$/;
+                                    const match = markdownToParse.match(mdBlockRegex);
+                                    if (match && match[1]) markdownToParse = match[1];
+                                    
+                                    elements.answerContainer.innerHTML = marked.parse(markdownToParse);
                                     scrollToBottom();
-                                });
+                                } else {
+                                    // 没有思考过程容器，正常渲染
+                                    let markdownToParse = elements.rawMarkdown;
+                                    const mdBlockRegex = /^```markdown\s*\n([\s\S]*?)\s*\n```$/;
+                                    const match = markdownToParse.match(mdBlockRegex);
+                                    if (match && match[1]) markdownToParse = match[1];
+                                    
+                                    // 使用requestAnimationFrame确保UI更新不被阻塞
+                                    requestAnimationFrame(() => {
+                                        elements.bubble.innerHTML = marked.parse(markdownToParse);
+                                        scrollToBottom();
+                                    });
+                                }
+                            }
+                            
+                            // 处理推理内容片段
+                            if (eventData.reasoning_piece !== undefined) {
+                                // 移除打字指示器
+                                if (elements.typingIndicator && elements.typingIndicator.parentNode) {
+                                    elements.typingIndicator.remove();
+                                    elements.typingIndicator = null;
+                                }
+                                
+                                // 初始化推理容器
+                                if (!elements.thinkingContainer) {
+                                    const thinkingContainer = document.createElement('div');
+                                    thinkingContainer.classList.add('thinking-container');
+                                    
+                                    const thinkingHeader = document.createElement('div');
+                                    thinkingHeader.classList.add('thinking-header', 'thinking-toggle');
+                                    thinkingHeader.innerHTML = '<i class="fas fa-brain mr-2"></i>💭 思考过程 <i class="fas fa-chevron-up ml-auto"></i>';
+                                    
+                                    const thinkingContent = document.createElement('div');
+                                    thinkingContent.classList.add('thinking-content');
+                                    
+                                    thinkingContainer.appendChild(thinkingHeader);
+                                    thinkingContainer.appendChild(thinkingContent);
+                                    
+                                    // 添加点击折叠功能
+                                    thinkingHeader.addEventListener('click', () => {
+                                        const isCollapsed = thinkingContent.classList.contains('collapsed');
+                                        // 更健壮的图标查找：查找最后一个 i 元素（chevron图标）
+                                        const chevron = thinkingHeader.querySelector('i:last-child');
+                                        if (isCollapsed) {
+                                            thinkingContent.classList.remove('collapsed');
+                                            chevron.className = 'fas fa-chevron-up ml-auto';
+                                        } else {
+                                            thinkingContent.classList.add('collapsed');
+                                            chevron.className = 'fas fa-chevron-down ml-auto';
+                                        }
+                                    });
+                                    
+                                    elements.bubble.appendChild(thinkingContainer);
+                                    elements.thinkingContainer = thinkingContainer;
+                                    elements.thinkingContent = thinkingContent;
+                                    elements.reasoningText = '';
+                                }
+                                
+                                // 追加推理内容
+                                elements.reasoningText += eventData.reasoning_piece;
+                                elements.thinkingContent.textContent = elements.reasoningText;
+                                
+                                console.debug(`收到模型 ${eventData.model_name} 的推理内容: "${eventData.reasoning_piece}"`);
+                                scrollToBottom();
                             }
                             
                             // 处理最终块
@@ -837,16 +1019,102 @@ document.addEventListener('DOMContentLoaded', function () {
                                 // 确保最终内容已被正确渲染
                                 if (eventData.full_content) {
                                     elements.rawMarkdown = eventData.full_content;
-                                    let markdownToParse = elements.rawMarkdown;
-                                    const mdBlockRegex = /^```markdown\s*\n([\s\S]*?)\s*\n```$/;
-                                    const match = markdownToParse.match(mdBlockRegex);
-                                    if (match && match[1]) markdownToParse = match[1];
                                     
-                                    // 使用requestAnimationFrame确保UI更新不被阻塞
-                                    requestAnimationFrame(() => {
+                                    // 解码HTML实体
+                                    function decodeHtmlEntities(text) {
+                                        const textarea = document.createElement('textarea');
+                                        textarea.innerHTML = text;
+                                        return textarea.value;
+                                    }
+                                    
+                                    const decodedContent = decodeHtmlEntities(elements.rawMarkdown);
+                                    
+                                    // 检查是否包含推理格式 <think>xxx</think><answer>xxx</answer>
+                                    // 处理可能的双重think标签: <think><think>content</think>
+                                    let thinkAnswerRegex = /<think.*?>([\s\S]*?)<\/think><answer>([\s\S]*?)<\/answer>/;
+                                    let match = decodedContent.match(thinkAnswerRegex);
+                                    
+                                    // 如果第一个正则不匹配，尝试第二个
+                                    if (!match) {
+                                        thinkAnswerRegex = /<think>([\s\S]*?)<\/think><answer>([\s\S]*?)<\/answer>/;
+                                        match = decodedContent.match(thinkAnswerRegex);
+                                    }
+                                    
+                                    console.log('最终块推理内容匹配结果:', match);
+                                    
+                                    if (match && match[1] && match[2]) {
+                                        // 有推理内容
+                                        const thinkingText = match[1].trim();
+                                        const answerText = match[2].trim();
+                                        
+                                        // 检查是否已经有思考过程容器（流式创建的）
+                                        if (elements.thinkingContainer) {
+                                            // 更新已有的思考内容
+                                            elements.thinkingContent.textContent = thinkingText;
+                                            
+                                            // 更新或创建答案容器
+                                            if (elements.answerContainer) {
+                                                elements.answerContainer.innerHTML = marked.parse(answerText);
+                                            } else {
+                                                const answerContainer = document.createElement('div');
+                                                answerContainer.classList.add('answer-content');
+                                                answerContainer.innerHTML = marked.parse(answerText);
+                                                elements.bubble.appendChild(answerContainer);
+                                                elements.answerContainer = answerContainer;
+                                            }
+                                        } else {
+                                            // 没有流式思考容器，创建完整布局
+                                            elements.bubble.innerHTML = '';
+                                            
+                                            // 创建思考过程容器
+                                            const thinkingContainer = document.createElement('div');
+                                            thinkingContainer.classList.add('thinking-container');
+                                            
+                                            const thinkingHeader = document.createElement('div');
+                                            thinkingHeader.classList.add('thinking-header', 'thinking-toggle');
+                                            thinkingHeader.innerHTML = '<i class="fas fa-brain mr-2"></i>💭 思考过程 <i class="fas fa-chevron-up ml-auto"></i>';
+                                            
+                                            const thinkingContent = document.createElement('div');
+                                            thinkingContent.classList.add('thinking-content');
+                                            thinkingContent.textContent = thinkingText;
+                                            
+                                            thinkingContainer.appendChild(thinkingHeader);
+                                            thinkingContainer.appendChild(thinkingContent);
+                                            
+                                            // 添加点击折叠功能
+                                            thinkingHeader.addEventListener('click', () => {
+                                                const isCollapsed = thinkingContent.classList.contains('collapsed');
+                                                // 更健壮的图标查找：查找最后一个 i 元素（chevron图标）
+                                                const chevron = thinkingHeader.querySelector('i:last-child');
+                                                if (isCollapsed) {
+                                                    thinkingContent.classList.remove('collapsed');
+                                                    chevron.className = 'fas fa-chevron-up ml-auto';
+                                                } else {
+                                                    thinkingContent.classList.add('collapsed');
+                                                    chevron.className = 'fas fa-chevron-down ml-auto';
+                                                }
+                                            });
+                                            
+                                            // 创建答案容器
+                                            const answerContainer = document.createElement('div');
+                                            answerContainer.classList.add('answer-content');
+                                            answerContainer.innerHTML = marked.parse(answerText);
+                                            
+                                            // 添加到气泡
+                                            elements.bubble.appendChild(thinkingContainer);
+                                            elements.bubble.appendChild(answerContainer);
+                                        }
+                                    } else {
+                                        // 没有推理内容，正常处理
+                                        let markdownToParse = elements.rawMarkdown;
+                                        const mdBlockRegex = /^```markdown\s*\n([\s\S]*?)\s*\n```$/;
+                                        const mdMatch = markdownToParse.match(mdBlockRegex);
+                                        if (mdMatch && mdMatch[1]) markdownToParse = mdMatch[1];
+                                        
                                         elements.bubble.innerHTML = marked.parse(markdownToParse);
-                                        scrollToBottom();
-                                    });
+                                    }
+                                    
+                                    scrollToBottom();
                                 }
                             }
                         } catch (e) {
@@ -949,7 +1217,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 处理历史消息中的Markdown
     const historicalAssistantBubbles = messagesContainer.querySelectorAll('.chat-message.chat-start .chat-bubble-accent');
     historicalAssistantBubbles.forEach(bubble => {
-        let rawMarkdown = bubble.innerHTML; // Assuming it might contain <br> from server, convert back for markdown
+        let rawMarkdown = bubble.innerHTML;
         rawMarkdown = rawMarkdown.replace(/<br\s*\/?>/g, "\n"); 
         const mdBlockRegex = /^```markdown\s*\n([\s\S]*?)\s*\n```$/;
         const match = rawMarkdown.match(mdBlockRegex);

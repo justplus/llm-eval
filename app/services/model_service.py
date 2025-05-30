@@ -4,6 +4,9 @@ from app.models import AIModel, User
 from flask_login import current_user
 import requests
 from datetime import datetime, timezone, timedelta
+from app.utils import get_beijing_time
+from cryptography.fernet import Fernet
+import base64
 
 # --- System Models Cache ---
 _system_models_cache = {"data": None, "last_fetched_utc": None}
@@ -36,11 +39,11 @@ def _fetch_system_models_from_provider_with_cache(models_url: str, headers: dict
     global _system_models_cache
     app_logger = current_app.logger # 在函数开始时获取logger
 
-    now_utc = datetime.now(timezone.utc)
+    now_beijing = get_beijing_time()
 
     # 检查缓存是否仍然有效
     if _system_models_cache["data"] is not None and _system_models_cache["last_fetched_utc"] is not None:
-        age_seconds = (now_utc - _system_models_cache["last_fetched_utc"]).total_seconds()
+        age_seconds = (now_beijing - _system_models_cache["last_fetched_utc"]).total_seconds()
         if age_seconds < CACHE_DURATION_SECONDS:
             app_logger.info("Returning system models from active cache.")
             return _system_models_cache["data"]
@@ -56,7 +59,7 @@ def _fetch_system_models_from_provider_with_cache(models_url: str, headers: dict
         
         # 更新缓存
         _system_models_cache["data"] = provider_models_data
-        _system_models_cache["last_fetched_utc"] = now_utc
+        _system_models_cache["last_fetched_utc"] = now_beijing
         app_logger.info("Successfully fetched and cached new system models.")
         return provider_models_data
     except requests.exceptions.RequestException as e:
@@ -171,34 +174,17 @@ def get_all_models_for_user(user):
     
     query = AIModel.query.order_by(AIModel.is_system_model.asc(), AIModel.display_name.asc())
     
-    # If user is not authenticated, they should only see system models.
-    # However, the current requirement is that custom models are tied to users.
-    # If an unauthenticated user scenario for viewing custom models arises, this logic needs revisit.
     if user.is_authenticated:
-        # Show user's custom models and all system models.
-        # The query above already fetches all, but we might filter if user should not see other users' models (already handled by user_id).
-        # The main sorting logic (custom first, then system) is handled by order_by is_system_model.asc().
-        all_models = query.all()
-        # Separate them for clarity or if specific per-type processing was needed, though order_by handles it.
-        user_models = [m for m in all_models if not m.is_system_model and m.user_id == user.id]
-        system_models = [m for m in all_models if m.is_system_model]
-        # The query already sorts custom models before system models due to `is_system_model.asc()`
-        # and then by display_name within each group.
-        # So, direct result of query.all() might be sufficient if no other user-specific filtering is needed beyond ownership.
-        # Let's re-verify the query logic for showing ONLY the current user's models + all system models.
 
-        # Correct approach: Fetch user models and system models separately and combine, or use a more complex query.
-        # For simplicity here and direct control:
+        all_models = query.all()
         user_custom_models = AIModel.query.filter_by(user_id=user.id, is_system_model=False).order_by(AIModel.display_name.asc()).all()
         all_system_models = AIModel.query.filter_by(is_system_model=True).order_by(AIModel.display_name.asc()).all()
         
         return user_custom_models + all_system_models
     else:
-        # Unauthenticated users only see system models
         return AIModel.query.filter_by(is_system_model=True).order_by(AIModel.display_name.asc()).all()
 
 def get_model_by_id_for_user(model_id, user):
-    """Gets a model by ID, ensuring it's either a system model or owned by the user."""
     model = AIModel.query.get(model_id)
     if model:
         if model.is_system_model or (user.is_authenticated and model.user_id == user.id):
@@ -206,7 +192,6 @@ def get_model_by_id_for_user(model_id, user):
     return None
 
 def create_user_model(data, user):
-    """Creates a new model for the given user."""
     api_key = data.pop('api_key', None)
     encrypted_api_key = api_key
     
@@ -234,7 +219,6 @@ def create_user_model(data, user):
         return None
 
 def update_user_model(model, data):
-    """Updates an existing user model."""
     if model.is_system_model:
         return False 
 
@@ -247,9 +231,14 @@ def update_user_model(model, data):
     model.default_temperature = data.get('default_temperature')
     model.notes = data.get('notes')
 
-    if 'api_key' in data and data['api_key']:
+    if 'api_key' in data:
+        # 保存原始API Key用于比较
+        original_api_key = model.encrypted_api_key
+        # 始终更新API Key字段，因为现在会回填显示
         model.encrypted_api_key = data['api_key']
-        model.is_validated = False
+        # 只有当API Key发生变化时才重置验证状态
+        if data['api_key'] != original_api_key:
+            model.is_validated = False
     
     db.session.add(model)
     try:
@@ -261,7 +250,6 @@ def update_user_model(model, data):
         return False
 
 def delete_user_model(model):
-    """Deletes a user-owned model."""
     if model.is_system_model or not current_user.is_authenticated or model.user_id != current_user.id:
         return False
     
@@ -275,9 +263,8 @@ def delete_user_model(model):
         return False
 
 def validate_model_connectivity(model):
-    """Tries to connect to the model provider to validate settings."""
     api_key_to_use = None
-    base_url_to_use = model.api_base_url # This will be from config for system models
+    base_url_to_use = model.api_base_url
 
     if model.is_system_model:
         api_key_to_use = _get_system_provider_api_key()
@@ -300,13 +287,11 @@ def validate_model_connectivity(model):
                     current_validation_status = True
                     status_message = "Model validated successfully and found at provider."
                 except ValueError: 
-                    current_validation_status = True # Connected, but couldn't parse/confirm specific ID.
+                    current_validation_status = True
                     status_message = "Model connected successfully, but could not confirm specific model ID from provider's list."
             else:
                 status_message = f"Validation failed. Status: {response.status_code}, Response: {response.text[:200]}"
             
-            # Update is_validated only for user models based on this live check.
-            # System models' is_validated status is managed by sync_system_models as per requirement.
             if not model.is_system_model:
                 model.is_validated = current_validation_status
                 db.session.add(model)

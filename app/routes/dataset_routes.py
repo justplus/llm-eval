@@ -286,7 +286,7 @@ def add_custom_dataset():
                 publish_date=publish_date,
                 source=current_user.username,
                 download_url=file_path,
-                dataset_info=dataset_info_data,
+                dataset_info=json.dumps(dataset_info_data) if dataset_info_data else None,
                 dataset_type='自建',
                 visibility=form.visibility.data,
                 format=form.format.data,

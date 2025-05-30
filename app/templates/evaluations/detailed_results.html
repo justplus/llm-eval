@@ -90,7 +90,7 @@
                                     {% for turn in (question_data.history or question_data.hisotory or []) %}
                                         {% if turn.user %}
                                         <div class="flex items-start gap-2">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center mt-1">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                                                 <i class="fas fa-user text-white text-xs"></i>
                                             </div>
                                             <div class="flex-1 min-w-0">
@@ -117,7 +117,7 @@
                                 <!-- 当前问题 -->
                                 {% if question_data.question or question_data.user or question_data.query %}
                                 <div class="flex items-start gap-2">
-                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center mt-1">
+                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                                         <i class="fas fa-user text-white text-xs"></i>
                                     </div>
                                     <div class="flex-1 min-w-0">

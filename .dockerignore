@@ -1,6 +1,7 @@
 # Git相关
 .git
 .gitignore
+.gitattributes
 
 # Python相关
 __pycache__
@@ -19,7 +20,6 @@ nosetests.xml
 coverage.xml
 *.cover
 *.log
-.git
 .mypy_cache
 .pytest_cache
 .hypothesis
@@ -37,6 +37,7 @@ env/
 *.swp
 *.swo
 *~
+.cursor/
 
 # 操作系统相关
 .DS_Store
@@ -47,7 +48,7 @@ env/
 ehthumbs.db
 Thumbs.db
 
-# 项目特定文件
+# 项目特定文件（运行时生成）
 instance/
 migrations/
 outputs/
@@ -55,7 +56,6 @@ uploads/
 logs/
 *.db
 *.sqlite
-*.sql
 
 # 测试文件
 test_*.py
@@ -64,17 +64,22 @@ test_*.py
 # 但保留初始化脚本
 !init_database.py
 
-# Docker相关
-Dockerfile
-docker-compose.yml
+# Docker相关（避免递归复制）
+Dockerfile*
+docker-compose*.yml
 .dockerignore
 
-# 文档和说明
+# 文档和说明（减少镜像大小）
 README.md
 需求.md
+*.md
+!DOCKER_DEPLOYMENT.md
 *.jpg
 *.png
 *.gif
 
-# 开发工具
-.cursor/ 
+# 开发工具配置
+.editorconfig
+.flake8
+.pylintrc
+pyproject.toml 

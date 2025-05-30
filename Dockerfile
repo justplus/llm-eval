@@ -1,5 +1,5 @@
 # 使用Python 3.12作为基础镜像
-FROM python:3.12-slim
+FROM artifacts.iflytek.com/docker-repo/library/python:3.12-slim as base
 
 # 设置工作目录
 WORKDIR /app
@@ -8,18 +8,19 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FLASK_APP=run.py \
-    FLASK_ENV=production
+    FLASK_ENV=production \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# 依赖安装阶段
+FROM base as deps-stage
 
-# 复制requirements.txt并安装Python依赖
+# 复制requirements.txt并安装Python依赖（单独一层，利用缓存）
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt -i https://depend.iflytek.com/artifactory/api/pypi/pypi-repo/simple
+
+# 最终阶段
+FROM deps-stage as final
 
 # 复制应用代码
 COPY . .
@@ -32,20 +33,11 @@ RUN chmod +x /app/run.py
 RUN chmod +x /app/init_database.py
 
 # 创建启动脚本
-RUN echo '#!/bin/bash\n\
-    set -e\n\
-    \n\
-    # 初始化数据库\n\
-    echo "正在初始化数据库..."\n\
-    python /app/init_database.py\n\
-    \n\
-    # 启动应用\n\
-    echo "启动Flask应用..."\n\
-    exec gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 120 run:app\n\
-    ' > /app/start.sh && chmod +x /app/start.sh
+COPY start.py /app/start.py
+RUN chmod +x /app/start.py
 
 # 暴露端口
 EXPOSE 5000
 
-# 设置启动命令
-CMD ["/app/start.sh"] 
+# 使用Python脚本启动
+CMD ["python", "/app/start.py"] 

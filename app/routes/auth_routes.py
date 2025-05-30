@@ -20,19 +20,18 @@ def login():
             user, created = user_service.create_user(form.username.data, form.username.data)
             if created:
                 flash('新用户已创建，初始密码与用户名相同。请及时修改密码。', 'info')
-                user_service.authenticate_user(form.username.data, form.username.data) # Log in the new user
+                user_service.authenticate_user(form.username.data, form.username.data, form.remember_me.data) # 登录新用户
                 return redirect(url_for('main.dashboard')) # Or to change_password page
             elif user is None: # Creation failed
                 flash('创建用户时发生错误，请重试。', 'danger')
                 return render_template('auth/login.html', title='登录', form=form)
         
         # User exists or was just created, try to authenticate
-        authenticated_user = user_service.authenticate_user(form.username.data, form.password.data)
+        authenticated_user = user_service.authenticate_user(form.username.data, form.password.data, form.remember_me.data)
         if authenticated_user:
             next_page = request.args.get('next')
             if not next_page or url_for(next_page.lstrip('/')) == url_for('main.index'): # Prevent open redirect
                 next_page = url_for('main.dashboard') 
-            flash(f'欢迎回来, {current_user.username}! 您已成功登录。', 'success')
             return redirect(next_page)
         else:
             flash('用户名或密码无效。', 'danger')
@@ -42,7 +41,6 @@ def login():
 @login_required
 def logout():
     user_service.logout_current_user()
-    flash('您已成功登出。', 'info')
     return redirect(url_for('auth.login'))
 
 @bp.route('/change_password', methods=['GET', 'POST'])

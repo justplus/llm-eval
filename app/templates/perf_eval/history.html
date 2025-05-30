@@ -143,7 +143,7 @@
                                         <i class="fas fa-trash"></i>
                                     </button>
                                     <form id="delete-form-{{ task.id }}" method="POST" 
-                                          action="{{ url_for('perf_eval.delete_task', task_id=task.id, source='history') }}" 
+                                          action="{{ url_for('perf_eval.delete_task', task_id=task.id, page=page) }}" 
                                           style="display:none;">
                                     </form>
                                 </div>
@@ -154,6 +154,54 @@
                 </table>
             </div>
             
+            <!-- 分页组件 -->
+            {% if total > per_page %}
+            <div class="flex justify-center mt-6">
+                <div class="btn-group">
+                    <!-- 上一页 -->
+                    {% if page > 1 %}
+                        <a href="{{ url_for('perf_eval.history', page=page-1) }}" class="btn">
+                            <i class="fas fa-chevron-left mr-1"></i>上一页
+                        </a>
+                    {% else %}
+                        <span class="btn btn-disabled">
+                            <i class="fas fa-chevron-left mr-1"></i>上一页
+                        </span>
+                    {% endif %}
+                    
+                    <!-- 页码按钮 -->
+                    {% set total_pages = (total + per_page - 1) // per_page %}
+                    {% for page_num in range(1, total_pages + 1) %}
+                        {% if page_num == page %}
+                            <span class="btn btn-active">{{ page_num }}</span>
+                        {% elif page_num <= 3 or page_num > total_pages - 3 or (page_num >= page - 1 and page_num <= page + 1) %}
+                            <a href="{{ url_for('perf_eval.history', page=page_num) }}" class="btn">{{ page_num }}</a>
+                        {% elif page_num == 4 and page > 6 %}
+                            <span class="btn btn-disabled">...</span>
+                        {% elif page_num == total_pages - 3 and page < total_pages - 5 %}
+                            <span class="btn btn-disabled">...</span>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- 下一页 -->
+                    {% if page < total_pages %}
+                        <a href="{{ url_for('perf_eval.history', page=page+1) }}" class="btn">
+                            下一页<i class="fas fa-chevron-right ml-1"></i>
+                        </a>
+                    {% else %}
+                        <span class="btn btn-disabled">
+                            下一页<i class="fas fa-chevron-right ml-1"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 分页信息 -->
+            <div class="text-center mt-4 text-sm text-base-content/70">
+                显示第 {{ (page-1) * per_page + 1 }} - {{ [page * per_page, total] | min }} 条，共 {{ total }} 条记录
+            </div>
+            {% endif %}
+            
             <!-- 统计信息 -->
             <div class="mt-6 stats shadow">
                 <div class="stat">
@@ -161,7 +209,8 @@
                         <i class="fas fa-tasks text-2xl"></i>
                     </div>
                     <div class="stat-title">总任务数</div>
-                    <div class="stat-value text-primary">{{ history_tasks|length }}</div>
+                    <div class="stat-value text-primary">{{ total }}</div>
+                    <div class="stat-desc">共 {{ (total + per_page - 1) // per_page }} 页</div>
                 </div>
                 
                 <div class="stat">
@@ -172,6 +221,7 @@
                     <div class="stat-value text-success">
                         {{ history_tasks|selectattr('status', 'equalto', 'completed')|list|length }}
                     </div>
+                    <div class="stat-desc">当前页</div>
                 </div>
                 
                 <div class="stat">
@@ -182,6 +232,7 @@
                     <div class="stat-value text-info">
                         {{ history_tasks|selectattr('status', 'equalto', 'running')|list|length }}
                     </div>
+                    <div class="stat-desc">当前页</div>
                 </div>
                 
                 <div class="stat">
@@ -192,6 +243,7 @@
                     <div class="stat-value text-error">
                         {{ history_tasks|selectattr('status', 'equalto', 'failed')|list|length }}
                     </div>
+                    <div class="stat-desc">当前页</div>
                 </div>
             </div>
             

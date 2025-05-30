@@ -55,17 +55,37 @@ def init_database():
         app = create_app()
         with app.app_context():
             # 创建所有表
+            print("正在创建数据库表...")
             db.create_all()
             print("数据库表创建完成")
             
+            # 验证表是否创建成功
+            from sqlalchemy import text
+            result = db.session.execute(text("SHOW TABLES"))
+            tables = [row[0] for row in result.fetchall()]
+            print(f"已创建的表: {', '.join(tables)}")
+            
             # 初始化基础数据（只在首次部署时执行）
+            print("开始初始化基础数据...")
             init_database_data()
+            
+            # 同步系统模型（在表创建完成后执行）
+            print("同步系统模型...")
+            try:
+                from app.services import model_service
+                model_service.sync_system_models()
+                print("✅ 系统模型同步完成")
+            except Exception as e:
+                print(f"⚠️ 系统模型同步失败: {e}")
+                # 不影响整体初始化流程
             
         print("数据库初始化完成")
         return True
         
     except Exception as e:
         print(f"数据库初始化失败: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def main():

@@ -31,7 +31,7 @@
                     <!-- 评估名称 -->
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text">评估名称 (选填)</span>
+                            <span class="label-text">评估名称 *</span>
                         </label>
                         <input type="text" name="evaluation_name" placeholder="为此次评估取个名称 (可选)" class="input input-bordered" />
                     </div>
@@ -39,7 +39,7 @@
                     <!-- 被评估模型 -->
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text">被评估模型 (自定义模型) *</span>
+                            <span class="label-text">被评估模型 *</span>
                         </label>
                         <select name="model_id" class="select select-bordered w-full" required>
                             <option value="">请选择要评估的自定义模型</option>
@@ -60,12 +60,12 @@
                     <!-- 裁判模型 -->
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text">裁判模型 (系统模型) *</span>
+                            <span class="label-text">裁判模型 (系统模型)</span>
                             <span class="label-text-alt text-info" title="裁判模型将对被评估模型的回答进行评分">
                                 <i class="fas fa-info-circle"></i>
                             </span>
                         </label>
-                        <select name="judge_model_id" class="select select-bordered w-full" required>
+                        <select name="judge_model_id" class="select select-bordered w-full">
                             <option value="">请选择裁判模型</option>
                             {% for model in system_models %}
                                 <option value="{{ model.id }}">{{ model.display_name }}</option>

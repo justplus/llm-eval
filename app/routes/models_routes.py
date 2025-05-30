@@ -51,11 +51,12 @@ def edit_model(model_id):
         flash('无法编辑此模型或模型不存在。', 'error')
         return redirect(url_for('models.list_models'))
 
-    # Pass decrypted key to form only if necessary and handled securely; WTForms doesn't show PasswordField value by default
-    # For editing, it's common to leave API key blank unless changing it.
+    # 在编辑时回填API Key用于显示和修改
     form = AIModelForm(obj=model)
-    if not form.is_submitted(): # Only clear on GET, not if form is submitted with blank key
-        form.api_key.data = "" 
+    if not form.is_submitted(): # GET请求时回填API Key
+        # 获取解密后的API Key用于回填
+        decrypted_key = model_service.get_decrypted_api_key(model)
+        form.api_key.data = decrypted_key if decrypted_key and decrypted_key != "[decryption_error]" else ""
 
     if form.validate_on_submit():
         model_data = {
@@ -66,11 +67,9 @@ def edit_model(model_id):
             "system_prompt": form.system_prompt.data,
             "default_temperature": form.default_temperature.data,
             "notes": form.notes.data,
-            "model_type": model.model_type # Keep original type or allow change via form
+            "model_type": model.model_type, # Keep original type or allow change via form
+            "api_key": form.api_key.data # 始终包含API Key，因为现在会回填显示
         }
-        if form.api_key.data: # Only include api_key if user entered something new
-            model_data["api_key"] = form.api_key.data
-        
         if model_service.update_user_model(model, model_data):
             flash(f"模型 ‘{model.display_name}’ 已成功更新。", 'success')
             return redirect(url_for('models.list_models'))

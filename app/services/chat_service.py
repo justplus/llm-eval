@@ -2,17 +2,16 @@ from flask import current_app
 from app import db
 from app.models import ChatSession, ChatMessage, AIModel
 from app.services import model_service # To get decrypted API keys and model details
-from flask_login import current_user
-from datetime import datetime, timezone, timedelta
 import openai # Import the OpenAI library
 import traceback # For detailed error logging
 from openai import APIConnectionError, RateLimitError, AuthenticationError, APIStatusError
 import json # 用于序列化模型配置
+from app.utils import get_beijing_time
 
 def create_chat_session(user_id, session_name=None):
     """创建一个新的对话会话。"""
     if not session_name:
-        session_name = datetime.now(timezone.utc).astimezone().strftime('%Y-%m-%d %H:%M:%S')
+        session_name = get_beijing_time().strftime('%Y-%m-%d %H:%M:%S')
     
     session = ChatSession(user_id=user_id, session_name=session_name)
     db.session.add(session)
@@ -63,7 +62,7 @@ def add_message_to_session(session_id, model_id, role, content, settings_snapsho
     db.session.add(message)
     
     # Update session's updated_at timestamp
-    session.updated_at = datetime.now(timezone.utc)
+    session.updated_at = get_beijing_time()
     db.session.add(session)
     
     try:
@@ -188,7 +187,7 @@ def call_openai_compatible_api(model_id: int, messages: list, system_prompt=None
         "system_prompt": actual_system_prompt,
         "temperature": actual_temperature,
         # "max_tokens": model.default_max_tokens if model.default_max_tokens is not None else 1024,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": get_beijing_time().isoformat()
     }
 
     if not api_key or not base_url:
@@ -221,15 +220,48 @@ def call_openai_compatible_api(model_id: int, messages: list, system_prompt=None
                     stream=True
                 )
                 full_response_content = []
+                reasoning_content = []  # 存储思考过程
                 has_yielded_any_content = False
+                has_reasoning = False
+                
                 for chunk in response_stream:
-                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    print(f"++++chunk: {chunk}")
+                    # 检查是否有推理内容
+                    if (hasattr(chunk, 'choices') and chunk.choices and 
+                        hasattr(chunk.choices[0], 'delta') and chunk.choices[0].delta and
+                        hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content):
+                        print(f"++++chunk.choices[0].delta.reasoning_content: {chunk.choices[0].delta.reasoning_content}")
+                        reasoning_piece = chunk.choices[0].delta.reasoning_content
+                        reasoning_content.append(reasoning_piece)
+                        has_reasoning = True
+                        # 流式发送思考过程
+                        yield {"reasoning_piece": reasoning_piece, "settings_snapshot": settings_snapshot, "is_final_chunk": False}
+    
+                    # 处理常规内容
+                    if (hasattr(chunk, 'choices') and chunk.choices and 
+                        hasattr(chunk.choices[0], 'delta') and chunk.choices[0].delta and
+                        hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content):
                         content_piece = chunk.choices[0].delta.content
                         full_response_content.append(content_piece)
                         has_yielded_any_content = True
                         yield {"content_piece": content_piece, "settings_snapshot": settings_snapshot, "is_final_chunk": False}
                 
-                yield {"full_content": "".join(full_response_content), "settings_snapshot": settings_snapshot, "is_final_chunk": True, "empty_stream": not has_yielded_any_content}
+                # 构建最终内容，如果有推理过程，使用特殊格式
+                final_content = ""
+                if has_reasoning and reasoning_content:
+                    reasoning_text = "".join(reasoning_content)
+                    answer_text = "".join(full_response_content)
+                    final_content = f"<think>{reasoning_text}</think><answer>{answer_text}</answer>"
+                else:
+                    final_content = "".join(full_response_content)
+                
+                yield {
+                    "full_content": final_content, 
+                    "settings_snapshot": settings_snapshot, 
+                    "is_final_chunk": True, 
+                    "empty_stream": not has_yielded_any_content and not has_reasoning,
+                    "has_reasoning": has_reasoning
+                }
             
             except (APIConnectionError, RateLimitError, AuthenticationError, APIStatusError) as e_api_stream:
                 app_logger.error(f"流式API调用中发生错误 (模型: {model_info['display_name']}): {traceback.format_exc()}")
@@ -256,8 +288,18 @@ def call_openai_compatible_api(model_id: int, messages: list, system_prompt=None
                 # max_tokens=settings_snapshot["max_tokens"],
                 stream=False
             )
+            
+            # 检查非流式响应中的推理内容
             response_content = completion.choices[0].message.content
-            return {"content": response_content, "settings_snapshot": settings_snapshot}
+            reasoning_content = getattr(completion.choices[0].message, 'reasoning', None)
+            
+            # 如果有推理内容，使用特殊格式存储
+            if reasoning_content:
+                final_content = f"<think>{reasoning_content}</think><answer>{response_content}</answer>"
+            else:
+                final_content = response_content
+                
+            return {"content": final_content, "settings_snapshot": settings_snapshot, "has_reasoning": bool(reasoning_content)}
         except (APIConnectionError, RateLimitError, AuthenticationError, APIStatusError) as e_api_nonstream:
             app_logger.error(f"非流式API调用中发生错误 (模型: {model_info['display_name']}): {traceback.format_exc()}")
             error_type = "API 调用错误"

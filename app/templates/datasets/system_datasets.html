@@ -133,7 +133,7 @@
                         {# sample_data_url 已移除, sample_data 是 JSON 字段 #}
                         <button class="btn btn-xs btn-outline btn-primary" 
                                 onclick="showSampleDataModal(this)" 
-                                data-sample-data='{{ dataset.dataset_info | tojson | safe if dataset.dataset_info else "{}" }}'
+                                data-sample-data='{{ dataset.dataset_info | safe if dataset.dataset_info else "{}" }}'
                                 {% if not dataset.dataset_info %}disabled{% endif %}>
                             查看结构
                         </button>

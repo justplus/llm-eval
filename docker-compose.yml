@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  # MySQL数据库服务
   mysql:
-    image: mysql:8.0
+    image: artifacts.iflytek.com/docker-repo/library/mysql:8.0
     container_name: llm_eva_mysql
     restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: llm_eva
@@ -17,18 +17,16 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql-init:/docker-entrypoint-initdb.d
-    command: --default-authentication-plugin=mysql_native_password
     networks:
       - llm_eva_network
 
   # Flask应用服务
   web:
-    build: .
+    image: llm-eva
     container_name: llm_eva_web
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "8080:5000"
     environment:
       # 数据库连接配置
       DB_HOST: mysql
@@ -53,9 +51,9 @@ services:
       # 其他配置
       WTF_CSRF_ENABLED: "False"
     volumes:
-      - /data/llm_eva/uploads:/app/uploads
-      - /data/llm_eva/outputs:/app/outputs
-      - /data/llm_eva/logs:/app/logs
+      - ./data/uploads:/app/uploads
+      - ./data/outputs:/app/outputs
+      - ./data/logs:/app/logs
     depends_on:
       - mysql
     networks:

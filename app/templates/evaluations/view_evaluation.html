@@ -43,7 +43,7 @@
                 </div>
                 <div>
                     <p class="font-semibold">裁判模型</p>
-                    <p class="text-lg">{{ judge_model.display_name }}</p>
+                    <p class="text-lg">{{ judge_model.display_name if judge_model else '-' }}</p>
                 </div>
                 <div>
                     <p class="font-semibold">生成参数</p>

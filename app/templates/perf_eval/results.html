@@ -59,12 +59,12 @@
                     <span class="loading loading-spinner loading-xs ml-2"></span>
                     {% endif %}
                 </p>
-                <p><strong>创建时间:</strong> {{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') if task.created_at else 'N/A' }} UTC</p>
+                <p><strong>创建时间:</strong> {{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') if task.created_at else 'N/A' }}</p>
                 {% if task.started_at %}
-                <p><strong>开始时间:</strong> {{ task.started_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+                <p><strong>开始时间:</strong> {{ task.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
                 {% endif %}
                 {% if task.completed_at %}
-                <p><strong>完成时间:</strong> {{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+                <p><strong>完成时间:</strong> {{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
                 {% endif %}
                 {% if task.status == 'failed' and task.error_message %}
                 <p class="col-span-full text-error"><strong>错误信息:</strong> {{ task.error_message }}</p>
@@ -78,7 +78,7 @@
         <div class="card-body">
             <h2 class="card-title text-xl mb-4">任务进行中</h2>
             <div class="flex flex-col items-center justify-center p-8">
-                <div class="radial-progress text-primary" style="--value:70;" role="progressbar">70%</div>
+                <span class="loading loading-spinner loading-lg text-primary"></span>
                 <p class="mt-4">性能评估任务正在执行中，请耐心等待。页面将自动刷新显示最新状态。</p>
             </div>
         </div>
@@ -147,6 +147,7 @@
                 <h2 class="card-title text-xl mb-4">
                     <i class="fas fa-chart-bar mr-2"></i>百分位指标
                 </h2>
+                
                 <div class="overflow-x-auto">
                     {% set percentile_data = {} %}
                     {% for line in task.percentile_results.split('\n') %}

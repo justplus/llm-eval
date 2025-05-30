@@ -83,7 +83,7 @@ def create_evaluation():
         try:
             # 获取表单数据
             model_id = request.form.get('model_id', type=int)
-            judge_model_id = request.form.get('judge_model_id', type=int)
+            judge_model_id = request.form.get('judge_model_id', type=int, default=None)
             temperature = request.form.get('temperature', type=float, default=0.7)
             max_tokens = request.form.get('max_tokens', type=int, default=2048)
             evaluation_name = request.form.get('evaluation_name', '')
@@ -91,9 +91,9 @@ def create_evaluation():
             
             # 验证模型权限
             target_model = AIModel.query.get(model_id)
-            judge_model = AIModel.query.get(judge_model_id)
+            judge_model = None if judge_model_id is None else AIModel.query.get(judge_model_id)
             
-            if not target_model or not judge_model:
+            if not target_model:
                 flash('所选模型不存在。', 'error')
                 return redirect(url_for('evaluations.create_evaluation'))
             
@@ -103,7 +103,7 @@ def create_evaluation():
                 return redirect(url_for('evaluations.create_evaluation'))
                 
             # 检查裁判模型是否为系统模型
-            if not judge_model.is_system_model:
+            if judge_model and not judge_model.is_system_model:
                 flash('裁判模型必须是系统内置模型。', 'error')
                 return redirect(url_for('evaluations.create_evaluation'))
             
@@ -163,7 +163,7 @@ def view_evaluation(evaluation_id):
     
     # 获取评估关联的模型
     model = AIModel.query.get(evaluation.model_id)
-    judge_model = AIModel.query.get(evaluation.judge_model_id)
+    judge_model = None if evaluation.judge_model_id is None else AIModel.query.get(evaluation.judge_model_id)
     
     # 获取评估数据集信息 (不再包含子集和分割)
     datasets_info = []
