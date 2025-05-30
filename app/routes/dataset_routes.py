@@ -132,7 +132,7 @@ def add_custom_dataset():
                     return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
                 
                 if filename: # Ensure filename is not empty after secure_filename
-                    upload_folder = current_app.config.get('DATASET_UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads', 'datasets'))
+                    upload_folder = current_app.config.get('DATASET_UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
                     if not os.path.exists(upload_folder):
                         os.makedirs(upload_folder, exist_ok=True)
                     
