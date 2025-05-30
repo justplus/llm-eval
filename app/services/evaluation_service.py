@@ -385,6 +385,9 @@ class EvaluationService:
                                                         else:
                                                             slot_f1 = 0.0
                                                         
+                                                        if correct_count + miss_count + fail_count == 0:
+                                                            slot_f1 = 1.0
+                                                        
                                                         # 最终分数 = intent_result * slot_f1
                                                         score = float(intent_result) * slot_f1
                                                         current_app.logger.debug(f"[评估任务 {evaluation_id}] 复合结果计算: intent={intent_result}, slot_f1={slot_f1:.4f}, final_score={score:.4f}")
