@@ -20,8 +20,8 @@ def create():
     """创建性能评估任务"""
     form = PerformanceEvalForm()
     
-    # 获取已注册的模型用于选择 - 修复SelectField格式问题
-    user_models = [(m.id, m.model_identifier) for m in AIModel.query.filter_by(user_id=current_user.id, is_system_model=False).all()]
+    # 获取已注册的模型用于选择 - 修复显示问题：使用display_name而不是model_identifier
+    user_models = [(m.id, m.display_name) for m in AIModel.query.filter_by(user_id=current_user.id, is_system_model=False).all()]
     
     # 获取可用的数据集
     # 权限控制：自己创建的自建数据集 + 别人公开的自建数据集
