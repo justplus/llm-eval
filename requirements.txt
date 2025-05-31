@@ -15,6 +15,7 @@ evalscope[perf]
 # 数据处理相关
 pandas
 numpy
+openpyxl
 # Web服务器
 gunicorn
 # 其他必要依赖

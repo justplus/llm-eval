@@ -144,6 +144,5 @@ WechatIMG117.jpg
 outputs/
 migrations/
 
-app/uploads
-app/data
+data/
 .DS_Store

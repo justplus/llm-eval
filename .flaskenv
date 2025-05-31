@@ -14,4 +14,6 @@ SYSTEM_OPENAI_API_KEY="ST-xxx" # TODO: Replace ST-xxx with your actual System Pr
 
 DEFAULT_MODEL_API_KEY="ST-xxx"
 
-SYSTEM_PROVIDER_BASE_URL="http://172.31.114.167/v1" # TODO: Verify or update this URL as needed
+SYSTEM_PROVIDER_BASE_URL="http://172.31.114.167/v1"
+
+DATASET_UPLOAD_FOLDER="./data/uploads"

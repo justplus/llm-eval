@@ -23,7 +23,7 @@ class Config:
     DEFAULT_MODEL_API_KEY = os.environ.get('DEFAULT_MODEL_API_KEY')
 
     # 文件上传配置
-    DATASET_UPLOAD_FOLDER = os.environ.get('DATASET_UPLOAD_FOLDER') or '/app/uploads'
+    DATASET_UPLOAD_FOLDER = os.environ.get('DATASET_UPLOAD_FOLDER')
     
     # You can add other configurations here, e.g., for email, etc.
 

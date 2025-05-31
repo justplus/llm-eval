@@ -2,8 +2,6 @@ from flask import current_app
 from app import db
 from app.models import PerformanceEvalTask, AIModel, SystemDataset
 from app.utils import get_beijing_time
-from datetime import datetime, timezone
-import json
 import multiprocessing
 import tempfile
 import os
@@ -12,7 +10,10 @@ import pickle
 import signal
 import time
 import re
+import json
 from typing import Tuple, Dict, List, Any, Optional
+from evalscope.perf.utils.db_util import PercentileMetrics
+from evalscope.perf.utils.benchmark_util import Metrics
 
 # evalscope导入
 from evalscope.perf.main import run_perf_benchmark
@@ -75,7 +76,7 @@ class PerformanceEvaluationService:
             header_found = False
             for i, line in enumerate(lines):
                 stripped_line = line.strip()
-                if not header_found and "Percentiles" in stripped_line and "TTFT (s)" in stripped_line: # 找到表头行
+                if not header_found and PercentileMetrics.PERCENTILES in stripped_line and PercentileMetrics.TTFT in stripped_line: # 找到表头行
                     header_line = stripped_line
                     header_found = True
                 elif header_found and stripped_line.startswith('|') and "---" not in stripped_line and len(stripped_line.split('|')) > 3:
@@ -254,9 +255,9 @@ class PerformanceEvaluationService:
                                         raw_output += "\n".join([f"{k}: {v}" for k, v in summary.items()]) + "\n\n"
                                         raw_output += "Percentile results:\n"
                                         # 格式化百分位结果
-                                        if percentiles and isinstance(percentiles, dict) and 'Percentiles' in percentiles:
+                                        if percentiles and isinstance(percentiles, dict) and PercentileMetrics.PERCENTILES in percentiles:
                                             headers = list(percentiles.keys())
-                                            for i in range(len(percentiles['Percentiles'])):
+                                            for i in range(len(percentiles[PercentileMetrics.PERCENTILES])):
                                                 row = []
                                                 for h in headers:
                                                     if i < len(percentiles[h]):
@@ -329,22 +330,21 @@ class PerformanceEvaluationService:
         """将汇总数据转换为文本格式"""
         # 定义汇总指标的显示顺序
         summary_order = [
-            'Time taken for tests (s)',
-            'Number of concurrency',
-            'Total requests',
-            'Succeed requests',
-            'Failed requests',
-            'Output token throughput (tok/s)',
-            'Total token throughput (tok/s)',
-            'Request throughput (req/s)',
-            'Average latency (s)',
-            'Average time to first token (s)',
-            'Average time per output token (s)',
-            'Average input tokens per request',
-            'Average output tokens per request',
-            'Average package latency (s)',
-            'Average package per request',
-            'Expected number of requests'
+            Metrics.TIME_TAKEN_FOR_TESTS,
+            Metrics.NUMBER_OF_CONCURRENCY,
+            Metrics.TOTAL_REQUESTS,
+            Metrics.SUCCEED_REQUESTS,
+            Metrics.FAILED_REQUESTS,
+            Metrics.OUTPUT_TOKEN_THROUGHPUT,
+            Metrics.TOTAL_TOKEN_THROUGHPUT,
+            Metrics.REQUEST_THROUGHPUT,
+            Metrics.AVERAGE_LATENCY,
+            Metrics.AVERAGE_TIME_TO_FIRST_TOKEN,
+            Metrics.AVERAGE_TIME_PER_OUTPUT_TOKEN,
+            Metrics.AVERAGE_INPUT_TOKENS_PER_REQUEST,
+            Metrics.AVERAGE_OUTPUT_TOKENS_PER_REQUEST,
+            Metrics.AVERAGE_PACKAGE_LATENCY,
+            Metrics.AVERAGE_PACKAGE_PER_REQUEST,
         ]
         
         # 按顺序生成汇总文本
@@ -365,15 +365,15 @@ class PerformanceEvaluationService:
         """将百分位数据转换为文本格式"""
         # 定义百分位指标的显示顺序
         percentile_order = [
-            'Percentile',
-            'TTFT (s)',
-            'ITL (s)',
-            'TPOT (s)',
-            'Latency (s)',
-            'Input tokens',
-            'Output tokens',
-            'Output throughput(tok/s)',
-            'Total throughput(tok/s)'
+            PercentileMetrics.PERCENTILES,
+            PercentileMetrics.TTFT,
+            PercentileMetrics.ITL,
+            PercentileMetrics.TPOT,
+            PercentileMetrics.LATENCY,
+            PercentileMetrics.INPUT_TOKENS,
+            PercentileMetrics.OUTPUT_TOKENS,
+            PercentileMetrics.OUTPUT_THROUGHPUT,
+            PercentileMetrics.TOTAL_THROUGHPUT
         ]
         
         # 按顺序生成百分位文本
@@ -576,4 +576,133 @@ class PerformanceEvaluationService:
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"删除性能评估任务 {task_id} 失败: {str(e)}")
-            return False 
+            return False
+
+    @staticmethod
+    def get_metric_explanations() -> Dict[str, Dict[str, str]]:
+        """
+        获取性能汇总指标的说明信息
+        
+        Returns:
+            Dict[str, Dict[str, str]]: 指标说明字典
+        """
+        return {
+            Metrics.TIME_TAKEN_FOR_TESTS: {
+                'title': '测试总时长',
+                'description': '整个测试过程从开始到结束所花费的总时间',
+                'formula': '最后一个请求结束时间 - 第一个请求开始时间'
+            },
+            Metrics.NUMBER_OF_CONCURRENCY: {
+                'title': '并发数',
+                'description': '同时发送请求的客户端数量',
+                'formula': '预设值'
+            },
+            Metrics.TOTAL_REQUESTS: {
+                'title': '总请求数',
+                'description': '在整个测试过程中发送的所有请求的数量',
+                'formula': '成功请求数 + 失败请求数'
+            },
+            Metrics.SUCCEED_REQUESTS: {
+                'title': '成功请求数',
+                'description': '成功完成并返回预期结果的请求数量',
+                'formula': '直接统计'
+            },
+            Metrics.FAILED_REQUESTS: {
+                'title': '失败请求数',
+                'description': '由于各种原因未能成功完成的请求数量',
+                'formula': '直接统计'
+            },
+            Metrics.OUTPUT_TOKEN_THROUGHPUT: {
+                'title': '输出吞吐量',
+                'description': '每秒钟处理的平均输出标记（token）数',
+                'formula': '总输出token数 / 测试总时长'
+            },
+            Metrics.TOTAL_TOKEN_THROUGHPUT: {
+                'title': '总吞吐量',
+                'description': '每秒钟处理的平均标记（token）数',
+                'formula': '(总输入token数 + 总输出token数) / 测试总时长'
+            },
+            Metrics.REQUEST_THROUGHPUT: {
+                'title': '请求吞吐量',
+                'description': '每秒钟成功处理的平均请求数',
+                'formula': '成功请求数 / 测试总时长'
+            },
+            Metrics.AVERAGE_LATENCY: {
+                'title': '平均延迟',
+                'description': '从发送请求到接收完整响应的平均时间',
+                'formula': '总延迟时间 / 成功请求数'
+            },
+            Metrics.AVERAGE_TIME_TO_FIRST_TOKEN: {
+                'title': '平均首token时间',
+                'description': '从发送请求到接收到第一个响应标记的平均时间',
+                'formula': '总首chunk延迟 / 成功请求数'
+            },
+            Metrics.AVERAGE_TIME_PER_OUTPUT_TOKEN: {
+                'title': '平均每输出token时间',
+                'description': '生成每个输出标记所需的平均时间（不包含首token）',
+                'formula': '总每输出token时间 / 成功请求数'
+            },
+            Metrics.AVERAGE_INPUT_TOKENS_PER_REQUEST: {
+                'title': '平均输入token数',
+                'description': '每个请求的平均输入标记数',
+                'formula': '总输入token数 / 成功请求数'
+            },
+            Metrics.AVERAGE_OUTPUT_TOKENS_PER_REQUEST: {
+                'title': '平均输出token数',
+                'description': '每个请求的平均输出标记数',
+                'formula': '总输出token数 / 成功请求数'
+            },
+            Metrics.AVERAGE_PACKAGE_LATENCY: {
+                'title': '平均数据包延迟',
+                'description': '接收每个数据包的平均延迟时间',
+                'formula': '总数据包时间 / 总数据包数'
+            },
+            Metrics.AVERAGE_PACKAGE_PER_REQUEST: {
+                'title': '平均每请求数据包数',
+                'description': '每个请求平均接收的数据包数量',
+                'formula': '总数据包数 / 成功请求数'
+            }
+        }
+
+    @staticmethod
+    def get_percentile_explanations() -> Dict[str, Dict[str, str]]:
+        """
+        获取百分位指标的说明信息
+        
+        Returns:
+            Dict[str, Dict[str, str]]: 百分位指标说明字典
+        """
+        return {
+            PercentileMetrics.TTFT: {
+                'title': '首次生成token时间 (Time to First Token)',
+                'description': '从发送请求到生成第一个token的时间（以秒为单位），评估首包延时'
+            },
+            PercentileMetrics.ITL: {
+                'title': '输出token间时延 (Inter-token Latency)',
+                'description': '生成每个输出token间隔时间（以秒为单位），评估输出是否平稳'
+            },
+            PercentileMetrics.TPOT: {
+                'title': '每token延迟 (Time per Output Token)',
+                'description': '生成每个输出token所需的时间（不包含首token，以秒为单位），评估解码速度'
+            },
+            PercentileMetrics.LATENCY: {
+                'title': '端到端延迟时间',
+                'description': '从发送请求到接收完整响应的时间（以秒为单位）：TTFT + TPOT × Output tokens'
+            },
+            PercentileMetrics.INPUT_TOKENS: {
+                'title': '输入token数',
+                'description': '请求中输入的token数量'
+            },
+            PercentileMetrics.OUTPUT_TOKENS: {
+                'title': '输出token数',
+                'description': '响应中生成的token数量'
+            },
+            PercentileMetrics.OUTPUT_THROUGHPUT: {
+                'title': '输出吞吐量',
+                'description': '每秒输出的token数量：输出tokens / 端到端延时'
+            },
+            PercentileMetrics.TOTAL_THROUGHPUT: {
+                'title': '总吞吐量',
+                'description': '每秒处理的token数量：(输入tokens + 输出tokens) / 端到端延时'
+            }
+        } 

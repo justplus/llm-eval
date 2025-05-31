@@ -227,9 +227,17 @@
                 <h2 class="card-title">
                     <i class="fas fa-list-alt mr-2"></i> 详细评估结果
                 </h2>
-                <a href="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-search-plus mr-1"></i> 查看并搜索详细结果
-                </a>
+                <div class="flex gap-2">
+                    <!-- Excel导出按钮 -->
+                    <button class="btn btn-success btn-sm" 
+                            title="导出全部评估结果为Excel文件"
+                            onclick="startDownload()">
+                        <i class="fas fa-download mr-1"></i> 导出Excel
+                    </button>
+                    <a href="{{ url_for('evaluations.view_detailed_results', evaluation_id=evaluation.id) }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-search-plus mr-1"></i> 查看并搜索详细结果
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -263,6 +271,29 @@
         </div>
     </div>
 </div>
+
+<!-- 下载进度模态框 -->
+<input type="checkbox" id="download-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">
+            <i class="fas fa-download mr-2"></i>正在准备Excel文件
+        </h3>
+        <div class="py-4">
+            <p class="mb-4">正在导出评估结果，请稍候...</p>
+            <progress class="progress progress-primary w-full"></progress>
+            <p class="text-sm text-gray-500 mt-2">
+                正在准备和下载Excel文件，请不要关闭页面。<br>
+                下载完成后将自动关闭此提示。
+            </p>
+        </div>
+        <div class="modal-action">
+            <label for="download-modal" class="btn btn-outline">
+                取消下载
+            </label>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -288,6 +319,64 @@
                     setTimeout(function() { window.location.reload(); }, 10000); // 出错后也继续轮询
                 });
         }, 5000); // 初始延迟
+    }
+
+    // 下载进度相关函数
+    function startDownload() {
+        showDownloadProgress();
+        
+        // 构建下载URL
+        var downloadUrl = "{{ url_for('evaluations.export_to_excel', evaluation_id=evaluation.id) }}";
+        
+        // 使用fetch API下载文件
+        fetch(downloadUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('下载请求失败: ' + response.status);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // 创建下载链接
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = '{{ evaluation.name }}_评估结果_' + new Date().toISOString().slice(0,19).replace(/:/g, '-') + '.xlsx';
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            hideDownloadProgress();
+        })
+        .catch(error => {
+            console.error('下载失败:', error);
+            hideDownloadProgress();
+            alert('下载失败: ' + error.message);
+        });
+    }
+
+    function showDownloadProgress() {
+        var modal = document.getElementById('download-modal');
+        if (modal) {
+            modal.checked = true;
+        }
+    }
+
+    function hideDownloadProgress() {
+        var modal = document.getElementById('download-modal');
+        if (modal) {
+            modal.checked = false;
+        }
     }
 </script>
 {% endblock %} 

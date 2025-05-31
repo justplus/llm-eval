@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, abort
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, abort, make_response
 from flask_login import login_required, current_user
 from app import db
 from app.models import AIModel, SystemDataset, ModelEvaluation, ModelEvaluationResult, ModelEvaluationDataset
@@ -6,6 +6,7 @@ from app.services.evaluation_service import EvaluationService
 import json
 from math import ceil # 用于分页计算
 from sqlalchemy import or_, and_
+from datetime import datetime
 
 bp = Blueprint('evaluations', __name__, url_prefix='/evaluations')
 
@@ -299,4 +300,53 @@ def view_detailed_results(evaluation_id):
         min_score=min_score,
         max_score=max_score,
         total_results=total_results 
-    ) 
+    )
+
+@bp.route('/export/<int:evaluation_id>', methods=['GET'])
+@login_required
+def export_to_excel(evaluation_id):
+    """导出评估结果到Excel"""
+    evaluation = EvaluationService.get_evaluation_by_id(evaluation_id, current_user.id)
+    
+    if not evaluation:
+        flash('评估不存在或您无权访问。', 'error')
+        return redirect(url_for('evaluations.evaluations_list'))
+    
+    if evaluation.status != 'completed':
+        flash('评估结果仅在评估成功完成后可用。', 'warning')
+        return redirect(url_for('evaluations.view_evaluation', evaluation_id=evaluation_id))
+
+    try:
+        # 获取筛选参数
+        search_query = request.args.get('search_query', None, type=str)
+        min_score = request.args.get('min_score', None, type=float)
+        max_score = request.args.get('max_score', None, type=float)
+        
+        # 导出Excel
+        excel_data = EvaluationService.export_evaluation_results_to_excel(
+            evaluation_id=evaluation_id,
+            user_id=current_user.id,
+            search_query=search_query,
+            min_score=min_score,
+            max_score=max_score
+        )
+        
+        if not excel_data:
+            flash('没有找到符合条件的评估结果。', 'warning')
+            return redirect(url_for('evaluations.view_detailed_results', evaluation_id=evaluation_id))
+        
+        # 生成文件名
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{evaluation.name}_{timestamp}.xlsx"
+        
+        # 创建响应
+        response = make_response(excel_data)
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        
+        return response
+        
+    except Exception as e:
+        current_app.logger.error(f"导出评估结果到Excel失败: {str(e)}")
+        flash(f'导出评估结果到Excel时发生错误: {str(e)}', 'error')
+        return redirect(url_for('evaluations.view_detailed_results', evaluation_id=evaluation_id)) 

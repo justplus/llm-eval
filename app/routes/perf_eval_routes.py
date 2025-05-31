@@ -100,9 +100,16 @@ def results(task_id):
         return redirect(url_for('perf_eval.history'))
     
     source = request.args.get('source', 'history')
+    
+    # 获取指标说明数据
+    metric_explanations = PerformanceEvaluationService.get_metric_explanations()
+    percentile_explanations = PerformanceEvaluationService.get_percentile_explanations()
+    
     return render_template('perf_eval/results.html', 
                          task=task, 
                          source=source,
+                         metric_explanations=metric_explanations,
+                         percentile_explanations=percentile_explanations,
                          title=f"性能评估结果 - 任务 {task_id}")
 
 @perf_eval_bp.route('/delete/<int:task_id>', methods=['POST'])

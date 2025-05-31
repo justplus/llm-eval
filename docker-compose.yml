@@ -46,7 +46,8 @@ services:
       SYSTEM_OPENAI_API_KEY: "ST-xxx"
       DEFAULT_MODEL_API_KEY: "ST-xxx"
       SYSTEM_PROVIDER_BASE_URL: "http://172.31.114.167/v1"
-      SYSTEM_PROVIDER_API_KEY: "sk-yourGlobalOpenAIKey"
+      SYSTEM_PROVIDER_API_KEY: "ST-xxx"
+      DATASET_UPLOAD_FOLDER: "/app/uploads"
       
       # 其他配置
       WTF_CSRF_ENABLED: "False"

@@ -18,6 +18,7 @@ from evalscope.constants import JudgeStrategy
 import os
 import json
 import pandas as pd
+from datetime import datetime
 
 # 辅助函数，尝试将evalscope的Report对象转换为可序列化的字典
 def serialize_evalscope_report(report_obj):
@@ -323,8 +324,10 @@ class EvaluationService:
                     t_base_output_dir = base_output_dir
                     for k in os.listdir(base_output_dir):
                         t_base_output_dir = os.path.join(base_output_dir, k)
-
-                    reviews_base_path = os.path.join(t_base_output_dir, OUTPUTS_STRUCTURE_REVIEWS_DIR, model_to_evaluate.model_identifier)
+                    
+                    # fix: model_to_evaluate.model_identifier可能是deepseek/deepseek-r1-0528-qwen3-8b这种格式，需要做个处理
+                    t_model_identifier = model_to_evaluate.model_identifier.split('/')[-1]
+                    reviews_base_path = os.path.join(t_base_output_dir, OUTPUTS_STRUCTURE_REVIEWS_DIR, t_model_identifier)
                     if os.path.isdir(reviews_base_path):
                         for review_filename_in_dir in os.listdir(reviews_base_path):
                             review_file_path = os.path.join(reviews_base_path, review_filename_in_dir)
@@ -369,9 +372,6 @@ class EvaluationService:
                                                         miss_count = slots_result.get('miss_count', 0)
                                                         fail_count = slots_result.get('fail_count', 0)
                                                         
-                                                        # F1 = 2 * precision * recall / (precision + recall)
-                                                        # precision = correct / (correct + fail)
-                                                        # recall = correct / (correct + miss)
                                                         total_predicted = correct_count + fail_count
                                                         total_actual = correct_count + miss_count
                                                         
@@ -389,7 +389,7 @@ class EvaluationService:
                                                             slot_f1 = 1.0
                                                         
                                                         # 最终分数 = intent_result * slot_f1
-                                                        score = float(intent_result) * slot_f1
+                                                        score = float(intent_result) * 0.5 + 0.5 * slot_f1
                                                         current_app.logger.debug(f"[评估任务 {evaluation_id}] 复合结果计算: intent={intent_result}, slot_f1={slot_f1:.4f}, final_score={score:.4f}")
                                                     else:
                                                         # 其他字典格式，尝试转换为float
@@ -502,4 +502,169 @@ class EvaluationService:
         total = query.count()
         results = query.paginate(page=page, per_page=per_page, error_out=False).items
         current_app.logger.info(f"[评估结果查询] EvalID: {evaluation_id}, UserID: {user_id}, Page: {page}, Search: '{search_query}', ScoreRange: [{min_score}, {max_score}], Found: {len(results)}, Total: {total}")
-        return results, total 
+        return results, total
+
+    @staticmethod
+    def export_evaluation_results_to_excel(
+        evaluation_id: int, 
+        user_id: int, 
+        search_query: Optional[str] = None,
+        min_score: Optional[float] = None,
+        max_score: Optional[float] = None
+    ) -> Optional[bytes]:
+        """
+        导出评估结果为Excel文件
+        
+        Args:
+            evaluation_id: 评估ID
+            user_id: 用户ID
+            search_query: 搜索查询
+            min_score: 最小分数
+            max_score: 最大分数
+            
+        Returns:
+            bytes: Excel文件的二进制数据，失败返回None
+        """
+        try:
+            # 验证权限
+            evaluation = ModelEvaluation.query.get(evaluation_id)
+            if not evaluation or evaluation.user_id != user_id:
+                return None
+            
+            # 构建查询
+            query = ModelEvaluationResult.query.filter_by(evaluation_id=evaluation_id)
+            
+            # 应用筛选条件
+            if search_query:
+                query = query.filter(ModelEvaluationResult.question.ilike(f"%{search_query}%"))
+            if min_score is not None:
+                query = query.filter(ModelEvaluationResult.score >= min_score)
+            if max_score is not None:
+                query = query.filter(ModelEvaluationResult.score <= max_score)
+                
+            query = query.order_by(ModelEvaluationResult.id.asc())
+            
+            # 获取总数但不加载数据
+            total_count = query.count()
+            if total_count == 0:
+                return None
+            
+            current_app.logger.info(f"开始导出评估结果，总数: {total_count}")
+            
+            # 创建Excel文件
+            from io import BytesIO
+            output = BytesIO()
+            
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # 分批处理数据，避免OOM
+                batch_size = 100  # 每批处理1000条记录
+                all_data = []
+                
+                # 使用yield_per进行流式查询
+                for batch_start in range(0, total_count, batch_size):
+                    current_app.logger.info(f"处理批次: {batch_start}-{min(batch_start + batch_size, total_count)}")
+                    
+                    # 分页查询当前批次
+                    batch_results = query.offset(batch_start).limit(batch_size).all()
+                    
+                    # 处理当前批次数据
+                    for idx, result in enumerate(batch_results, start=batch_start + 1):
+                        # 处理问题字段，提取多轮对话
+                        formatted_question = ""
+                        try:
+                            import json as json_lib
+                            import ast
+                            question_data = json_lib.loads(result.question)
+                        except (json.JSONDecodeError, TypeError, ValueError):
+                            question_data = ast.literal_eval(result.question)                            
+                            # 构建多轮对话
+                            conversation_parts = []
+                            
+                            # 添加历史对话
+                            history = question_data.get('history') or question_data.get('hisotory', [])
+                            if history:
+                                for turn_idx, turn in enumerate(history, 1):
+                                    if turn.get('user'):
+                                        conversation_parts.append(f"用户: {turn['user']}")
+                                    if turn.get('assistant'):
+                                        conversation_parts.append(f"助手: {turn['assistant']}")
+                            
+                            # 添加当前用户问题
+                            current_user_input = (question_data.get('user') or 
+                                                question_data.get('question') or 
+                                                question_data.get('query'))
+                            if current_user_input:
+                                conversation_parts.append(f"用户: {current_user_input}")
+                            
+                            # 组合成完整对话
+                            if conversation_parts:
+                                formatted_question = "\n".join(conversation_parts)
+                            else:
+                                formatted_question = result.question
+                                
+                        except (ValueError, SyntaxError, TypeError):
+                            # 如果不是JSON格式或解析失败，使用原始问题
+                            formatted_question = result.question
+                        
+                        all_data.append({
+                            '序号': idx,
+                            '问题': formatted_question,
+                            '模型回答': result.model_answer,
+                            '参考答案': result.reference_answer or '无',
+                            '得分': result.score if result.score is not None else '无评分',
+                            '数据集': result.dataset_name
+                        })
+                    
+                    # 清理当前批次以释放内存
+                    del batch_results
+                
+                # 创建DataFrame
+                df = pd.DataFrame(all_data)
+                current_app.logger.info(f"创建DataFrame完成，共 {len(df)} 行")
+                
+                # 写入Excel
+                df.to_excel(writer, sheet_name='评估结果', index=False)
+                
+                # 获取工作表对象进行格式化
+                worksheet = writer.sheets['评估结果']
+                
+                # 调整列宽
+                column_widths = {
+                    'A': 8,   # 序号
+                    'B': 50,  # 问题
+                    'C': 50,  # 模型回答
+                    'D': 30,  # 参考答案
+                    'E': 10,  # 得分
+                    'F': 20   # 数据集
+                }
+                
+                for col, width in column_widths.items():
+                    worksheet.column_dimensions[col].width = width
+                
+                # 设置表头样式
+                from openpyxl.styles import Font, PatternFill, Alignment
+                header_font = Font(bold=True, color='FFFFFF')
+                header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                
+                for cell in worksheet[1]:
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                # 设置数据行样式
+                for row in worksheet.iter_rows(min_row=2):
+                    for cell in row:
+                        cell.alignment = Alignment(vertical='top', wrap_text=True)
+                
+                # 清理DataFrame以释放内存
+                del df
+                del all_data
+            
+            output.seek(0)
+            file_data = output.getvalue()
+            current_app.logger.info(f"Excel导出完成，文件大小: {len(file_data)} bytes")
+            return file_data
+            
+        except Exception as e:
+            current_app.logger.error(f"导出Excel失败: {str(e)}")
+            return None 
