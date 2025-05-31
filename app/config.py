@@ -25,6 +25,15 @@ class Config:
     # 文件上传配置
     DATASET_UPLOAD_FOLDER = os.environ.get('DATASET_UPLOAD_FOLDER')
     
+    # 文件大小限制配置
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 50 * 1024 * 1024))  # 默认50MB
+    DATASET_MAX_FILE_SIZE = int(os.environ.get('DATASET_MAX_FILE_SIZE', 50 * 1024 * 1024))  # 50MB
+    DATASET_LARGE_FILE_THRESHOLD = int(os.environ.get('DATASET_LARGE_FILE_THRESHOLD', 10 * 1024 * 1024))  # 10MB
+    
+    # 文件验证配置
+    DATASET_MAX_VALIDATION_LINES = int(os.environ.get('DATASET_MAX_VALIDATION_LINES', 20))  # 最大验证行数
+    DATASET_VALIDATION_SAMPLE_SIZE = int(os.environ.get('DATASET_VALIDATION_SAMPLE_SIZE', 5))  # 验证采样间隔
+
     # You can add other configurations here, e.g., for email, etc.
 
 class DevelopmentConfig(Config):

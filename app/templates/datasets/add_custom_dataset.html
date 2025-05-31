@@ -138,9 +138,27 @@
 
             <div class="card-actions justify-end pt-4">
                 <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-ghost">取消</a>
-                {{ forms.render_submit_button(form.submit, class='btn-primary') }}
+                {{ forms.render_submit_button(form.submit, class='btn-primary', id='submit-btn') }}
             </div>
         </form>
+    </div>
+</div>
+
+<!-- 上传进度模态框 -->
+<input type="checkbox" id="upload-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">
+            <i class="fas fa-upload mr-2"></i>正在上传和处理数据集
+        </h3>
+        <div class="py-4">
+            <p class="mb-4" id="upload-status">正在上传文件，请稍候...</p>
+            <progress class="progress progress-primary w-full"></progress>
+            <p class="text-sm text-gray-500 mt-2">
+                <span id="file-info"></span><br>
+                正在验证文件格式，请不要关闭页面。
+            </p>
+        </div>
     </div>
 </div>
 
@@ -150,6 +168,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const qaFormatInfo = document.getElementById('qa-format-info');
     const mcqFormatInfo = document.getElementById('mcq-format-info');
     const fillFormatInfo = document.getElementById('fill-format-info');
+    const form = document.querySelector('form');
+    const submitBtn = document.getElementById('submit-btn');
+    const fileInput = document.querySelector('input[type="file"]');
     
     // 初始显示正确的格式说明
     updateFormatInfo(formatSelect.value);
@@ -157,6 +178,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // 监听格式选择变化
     formatSelect.addEventListener('change', function() {
         updateFormatInfo(this.value);
+    });
+    
+    // 文件选择验证
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const fileSize = file.size;
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const largeFileThreshold = 10 * 1024 * 1024; // 10MB
+            
+            if (fileSize > maxSize) {
+                alert(`文件过大 (${(fileSize / 1024 / 1024).toFixed(1)}MB)，请上传小于50MB的文件`);
+                e.target.value = '';
+                return;
+            }
+            
+            if (fileSize > largeFileThreshold) {
+                const proceed = confirm(`检测到大文件 (${(fileSize / 1024 / 1024).toFixed(1)}MB)，系统将使用快速验证模式。继续上传？`);
+                if (!proceed) {
+                    e.target.value = '';
+                    return;
+                }
+            }
+        }
+    });
+    
+    // 表单提交处理
+    form.addEventListener('submit', function(e) {
+        const file = fileInput.files[0];
+        if (file) {
+            // 显示上传进度
+            showUploadProgress(file);
+            
+            // 禁用提交按钮，防止重复提交
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> 处理中...';
+        }
     });
     
     function updateFormatInfo(format) {
@@ -172,6 +230,18 @@ document.addEventListener('DOMContentLoaded', function() {
             mcqFormatInfo.classList.remove('hidden');
         } else if (format === 'FILL') {
             fillFormatInfo.classList.remove('hidden');
+        }
+    }
+    
+    function showUploadProgress(file) {
+        const modal = document.getElementById('upload-modal');
+        const fileInfo = document.getElementById('file-info');
+        const uploadStatus = document.getElementById('upload-status');
+        
+        if (modal && fileInfo) {
+            fileInfo.textContent = `文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`;
+            uploadStatus.textContent = '正在上传和验证文件格式...';
+            modal.checked = true;
         }
     }
 });

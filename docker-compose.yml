@@ -26,7 +26,7 @@ services:
     container_name: llm_eva_web
     restart: unless-stopped
     ports:
-      - "8080:5000"
+      - "9999:5000"
     environment:
       # 数据库连接配置
       DB_HOST: mysql

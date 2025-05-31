@@ -140,27 +140,65 @@ def add_custom_dataset():
                     file_ext = os.path.splitext(filename)[1].lower()
                     new_filename = f"{current_user.id}_{dataset_name}{file_ext}"
                     file_path = os.path.join(upload_folder, new_filename)
-                    file.save(file_path)                    
+                    file.save(file_path)
+                    
+                    # 检查文件大小，避免处理过大的文件
+                    file_size = os.path.getsize(file_path)
+                    max_file_size = current_app.config.get('DATASET_MAX_FILE_SIZE', 50 * 1024 * 1024)
+                    large_file_threshold = current_app.config.get('DATASET_LARGE_FILE_THRESHOLD', 10 * 1024 * 1024)
+                    
+                    if file_size > max_file_size:
+                        os.remove(file_path)  # 删除上传的文件
+                        flash(f'文件过大 ({file_size / 1024 / 1024:.1f}MB)，请上传小于{max_file_size / 1024 / 1024:.0f}MB的文件', 'error')
+                        return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                    
+                    # 对于大文件，使用更宽松的验证策略
+                    is_large_file = file_size > large_file_threshold
+                    current_app.logger.info(f"Processing dataset file: {new_filename}, size: {file_size / 1024 / 1024:.1f}MB, large_file: {is_large_file}")
+                    
                     # 验证文件内容格式
                     try:
                         if selected_format == 'QA':
-                            # 验证JSONL文件格式
+                            # 验证JSONL文件格式 - 优化：只验证前100行
+                            max_validation_lines = current_app.config.get('DATASET_MAX_VALIDATION_LINES', 100)
+                            validation_sample_size = current_app.config.get('DATASET_VALIDATION_SAMPLE_SIZE', 10)
+                            
+                            # 大文件使用更宽松的验证
+                            if is_large_file:
+                                max_validation_lines = max_validation_lines // 2
+                                validation_sample_size = validation_sample_size * 2
+                            
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 line_count = 0
+                                validated_lines = 0
                                 for line in f:
                                     line_count += 1
-                                    try:
-                                        data = json.loads(line.strip())
-                                        # 验证必要字段
-                                        if 'query' not in data or 'response' not in data:
-                                            flash(f'文件第{line_count}行格式错误: 缺少必要字段 "query" 或 "response"', 'error')
+                                    
+                                    # 只验证前几行和采样验证，减少CPU占用
+                                    should_validate = (
+                                        line_count <= 5 or  # 总是验证前5行
+                                        (not is_large_file and line_count <= 10) or  # 小文件验证前10行
+                                        (line_count <= max_validation_lines and line_count % validation_sample_size == 0)
+                                    )
+                                    
+                                    if should_validate:
+                                        try:
+                                            data = json.loads(line.strip())
+                                            # 验证必要字段
+                                            if 'query' not in data or 'response' not in data:
+                                                flash(f'文件第{line_count}行格式错误: 缺少必要字段 "query" 或 "response"', 'error')
+                                                return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                            validated_lines += 1
+                                        except json.JSONDecodeError:
+                                            flash(f'文件第{line_count}行JSON格式错误', 'error')
                                             return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
-                                    except json.JSONDecodeError:
-                                        flash(f'文件第{line_count}行JSON格式错误', 'error')
-                                        return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                    
+                                    # 如果文件太大，只验证前面部分
+                                    if line_count > max_validation_lines:
+                                        break
                                 
                                 # 创建数据集结构信息
-                                if line_count > 0:
+                                if validated_lines > 0:
                                     subset_name = os.path.splitext(new_filename)[0]
                                     dataset_info_data = {
                                         subset_name: {
@@ -177,10 +215,14 @@ def add_custom_dataset():
                                             }
                                         }
                                     }
+                                else:
+                                    flash('文件为空或没有有效的数据行', 'error')
+                                    return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
                         
                         elif selected_format == 'MCQ':
-                            # 验证CSV文件格式
+                            # 验证CSV文件格式 - 优化：只验证头部和采样行
                             import csv
+                            
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 reader = csv.reader(f)
                                 headers = next(reader, None)  # 获取标题行
@@ -202,8 +244,21 @@ def add_custom_dataset():
                                     flash('CSV文件格式错误: 缺少选项列 (A, B, C...)', 'error')
                                     return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
                                 
-                                # 统计行数
-                                line_count = sum(1 for _ in reader) + 1  # +1 for header
+                                # 优化：对于大文件，快速估算行数而不是精确计算
+                                if is_large_file:
+                                    # 大文件快速估算
+                                    sample_lines = 0
+                                    for _ in range(100):  # 只读取100行来估算
+                                        try:
+                                            next(reader)
+                                            sample_lines += 1
+                                        except StopIteration:
+                                            break
+                                    line_count = sample_lines + 1  # +1 for header
+                                else:
+                                    # 小文件精确计算
+                                    f.seek(0)  # 重置到文件开头
+                                    line_count = sum(1 for _ in f)  # 快速计算总行数
                                 
                                 # 创建数据集结构信息
                                 subset_name = os.path.splitext(new_filename)[0]
@@ -230,24 +285,46 @@ def add_custom_dataset():
                                 }
                         
                         elif selected_format == 'FILL':
-                            # 验证填空题JSONL文件格式
+                            # 验证填空题JSONL文件格式 - 优化：只验证前100行
+                            max_validation_lines = current_app.config.get('DATASET_MAX_VALIDATION_LINES', 100)
+                            validation_sample_size = current_app.config.get('DATASET_VALIDATION_SAMPLE_SIZE', 10)
+                            
+                            # 大文件使用更宽松的验证
+                            if is_large_file:
+                                max_validation_lines = max_validation_lines // 2
+                                validation_sample_size = validation_sample_size * 2
+                            
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 line_count = 0
+                                validated_lines = 0
                                 for line in f:
                                     line_count += 1
-                                    try:
-                                        data = json.loads(line.strip())
-                                        # 验证必要字段
-                                        if 'question' not in data or 'answer' not in data:
-                                            flash(f'文件第{line_count}行格式错误: 缺少必要字段 "question" 或 "answer"', 'error')
+                                    
+                                    # 只验证前几行和采样验证，减少CPU占用
+                                    should_validate = (
+                                        line_count <= 5 or  # 总是验证前5行
+                                        (not is_large_file and line_count <= 10) or  # 小文件验证前10行
+                                        (line_count <= max_validation_lines and line_count % validation_sample_size == 0)
+                                    )
+                                    
+                                    if should_validate:
+                                        try:
+                                            data = json.loads(line.strip())
+                                            # 验证必要字段
+                                            if 'question' not in data or 'answer' not in data:
+                                                flash(f'文件第{line_count}行格式错误: 缺少必要字段 "question" 或 "answer"', 'error')
+                                                return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                            validated_lines += 1
+                                        except json.JSONDecodeError:
+                                            flash(f'文件第{line_count}行JSON格式错误', 'error')
                                             return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
-                                        
-                                    except json.JSONDecodeError:
-                                        flash(f'文件第{line_count}行JSON格式错误', 'error')
-                                        return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                    
+                                    # 如果文件太大，只验证前面部分
+                                    if line_count > max_validation_lines:
+                                        break
                                 
                                 # 创建数据集结构信息
-                                if line_count > 0:
+                                if validated_lines > 0:
                                     subset_name = os.path.splitext(new_filename)[0]
                                     dataset_info_data = {
                                         subset_name: {
@@ -265,6 +342,14 @@ def add_custom_dataset():
                                             }
                                         }
                                     }
+                                else:
+                                    flash('文件为空或没有有效的数据行', 'error')
+                                    return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                    
+                        # 对于大文件，给用户友好提示
+                        if is_large_file:
+                            flash(f'检测到大文件 ({file_size / 1024 / 1024:.1f}MB)，已使用快速验证模式。如需完整验证，请将文件分割成较小的片段。', 'info')
+                            
                     except Exception as e:
                         flash(f'验证文件格式时出错: {str(e)}', 'error')
                         current_app.logger.error(f"Error validating file: {e}")
