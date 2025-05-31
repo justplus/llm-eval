@@ -31,7 +31,7 @@ class AIModelForm(FlaskForm):
 class CustomDatasetForm(FlaskForm):
     name = StringField('数据集名称', validators=[DataRequired(), Length(max=200)])
     description = TextAreaField('描述', validators=[Optional(), Length(max=5000)])
-    categories = SelectMultipleField('测评方向', 
+    categories = SelectMultipleField('评估方法', 
                                    validators=[Optional()], 
                                    widget=ListWidget(prefix_label=False),
                                    option_widget=CheckboxInput())

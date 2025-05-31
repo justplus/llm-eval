@@ -36,8 +36,12 @@
     </div>
 {% endmacro %}
 
-{% macro render_submit_button(field, class='btn-primary', text=None) %}
-    {{ field(class='btn ' + class + ' w-full', value=(text if text else field.label.text)) }}
+{% macro render_submit_button(field, class='btn-primary', text=None, id=None) %}
+    {% set attrs = {'class': 'btn ' + class + ' w-full', 'value': (text if text else field.label.text)} %}
+    {% if id %}
+        {% set attrs = dict(attrs, id=id) %}
+    {% endif %}
+    {{ field(**attrs) }}
 {% endmacro %}
 
 {% macro render_checkbox_field(field, label_text=None, class='') %}

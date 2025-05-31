@@ -3,8 +3,19 @@
 {% block title %}仪表盘 - {{ super() }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="container mx-auto px-4 py-8">
+    <!-- 页面标题和描述 -->
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold mb-4">
+            <i class="fas fa-tachometer-alt mr-3 text-primary"></i>
+            大模型评估仪表盘
+        </h1>
+        <p class="text-lg text-base-content/70">
+            全面的大语言模型评估平台，提供模型/测试集管理、性能评估、效果评估、安全评估、RAG评估等功能
+        </p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <!-- 模型管理卡片 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
             <figure class="px-10 pt-10">
@@ -12,9 +23,9 @@
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">模型管理</h2>
-                <p>管理您的AI模型，包括系统内置模型和自定义模型。</p>
+                <p>管理您的AI模型，无论是公有云还是本地部署</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('models.list_models') }}" class="btn btn-primary"><i class="fas fa-arrow-right mr-1"></i> 前往管理</a>
+                    <a href="{{ url_for('models.list_models') }}" class="btn btn-primary"><i class="fas fa-cog mr-1"></i> 前往管理</a>
                     {# Placeholder: {{ url_for('models_bp.list_models') }} #}
                 </div>
             </div>
@@ -27,10 +38,10 @@
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">开始对话</h2>
-                <p>与单个或多个模型进行对话，比较它们的回答。</p>
+                <p>让多个模型上竞技场PK，看看谁更厉害</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-info"><i class="fas fa-arrow-right mr-1"></i> 进入对话</a>
-                    <a href="{{ url_for('chat.chat_history_list') }}" class="btn btn-info"><i class="fas fa-arrow-right mr-1"></i> 查看历史</a>
+                    <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-info"><i class="fas fa-comments mr-1"></i> 进入对话</a>
+                    <a href="{{ url_for('chat.chat_history_list') }}" class="btn btn-info"><i class="fas fa-eye mr-1"></i> 查看历史</a>
                 </div>
             </div>
         </div>
@@ -42,9 +53,9 @@
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">测试集管理</h2>
-                <p>管理标准测试集和自定义测试集。</p>
+                <p>共享你的测试集给团队，效率up up up</p>
                 <div class="card-actions">
-                     <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-secondary"><i class="fas fa-arrow-right mr-1"></i> 测试集管理</a>
+                     <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-secondary"><i class="fas fa-cog mr-1"></i> 测试集管理</a>
                 </div>
             </div>
         </div>
@@ -56,10 +67,10 @@
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">模型效果评估</h2>
-                <p>基于测试集对模型进行批量评估。</p>
+                <p>看看你的模型跑的准不准</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-warning"><i class="fas fa-plus mr-1"></i> 效果评估</a>
-                    <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-warning"><i class="fas fa-arrow-right mr-1"></i>
+                    <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-warning"><i class="fas fa-play mr-1"></i> 效果评估</a>
+                    <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-warning"><i class="fas fa-eye mr-1"></i>
                         查看历史</a>
                 </div>
             </div>
@@ -72,10 +83,43 @@
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">性能评估</h2>
-                <p>评估模型的吞吐量、延迟等性能指标。</p>
+                <p>看看你的模型跑的快还是慢</p>
                 <div class="card-actions">
                     <a href="{{ url_for('perf_eval.create') }}" class="btn btn-primary" style="background-color: #8B5CF6; border-color: #8B5CF6;"><i class="fas fa-play mr-1"></i> 性能评估</a>
-                    <a href="{{ url_for('perf_eval.history') }}" class="btn btn-primary" style="background-color: #8B5CF6; border-color: #8B5CF6;"><i class="fas fa-arrow-right mr-1"></i> 查看历史</a>
+                    <a href="{{ url_for('perf_eval.history') }}" class="btn btn-primary" style="background-color: #8B5CF6; border-color: #8B5CF6;"><i class="fas fa-eye mr-1"></i> 查看历史</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 即将到来功能卡片 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow border-2 border-dashed border-base-300">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-clock text-5xl text-accent"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title flex items-center gap-2">
+                    即将到来
+                </h2>
+                
+                <!-- 功能预告 -->
+                <div class="space-y-2 mb-4">
+                    <div class="flex items-center gap-2 text-sm">
+                        <i class="fas fa-shield-alt text-error"></i>
+                        <span class="font-semibold">安全评估</span>
+                        <div class="badge badge-error badge-xs">开发中</div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 text-sm mt-3">
+                        <i class="fas fa-search text-success"></i>
+                        <span class="font-semibold">RAG评估</span>
+                        <div class="badge badge-success badge-xs">开发中</div>
+                    </div>
+                </div>
+                
+                <div class="card-actions">
+                    <button class="btn btn-accent btn-disabled" disabled>
+                        <i class="fas fa-hourglass-half mr-1"></i> 开发中...
+                    </button>
                 </div>
             </div>
         </div>
