@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title if title else '大模型评估平台' }}{% endblock %}</title>
+    <!-- 立即应用主题，避免FOUC -->
+    <script>
+        (function() {
+            // 立即从localStorage获取保存的主题并应用
+            const savedTheme = localStorage.getItem('selectedTheme') || 'retro';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
     <!-- 添加favicon -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -393,8 +401,7 @@
             // 从localStorage获取保存的主题，如果没有则使用默认主题
             const savedTheme = localStorage.getItem('selectedTheme') || 'retro';
             
-            // 应用主题
-            document.documentElement.setAttribute('data-theme', savedTheme);
+            // 主题已经在head中应用了，这里只需要更新UI指示器
             updateThemeIndicator(savedTheme);
         }
         

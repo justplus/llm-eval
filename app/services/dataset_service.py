@@ -105,17 +105,12 @@ class DatasetService:
         流式加载JSONL文件，避免内存占用过高
         """
         try:
-            # 首先扫描文件，计算有效行数（非空且JSON有效的行）
+            # 快速扫描文件，只计算非空行数（不解析JSON）
             total_valid_lines = 0
             with open(file_path, 'r', encoding='utf-8') as f:
                 for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            json.loads(line)
-                            total_valid_lines += 1
-                        except json.JSONDecodeError:
-                            continue
+                    if line.strip():  # 只检查是否为非空行，不解析JSON
+                        total_valid_lines += 1
             
             # 计算分页参数
             start_idx = (page - 1) * per_page
@@ -133,21 +128,20 @@ class DatasetService:
                 for line in f:
                     line = line.strip()
                     if line:
-                        try:
-                            json_data = json.loads(line)
-                            
-                            # 检查是否在当前页范围内
-                            if start_idx <= current_valid_line < end_idx:
+                        # 检查是否在当前页范围内，只有需要的行才解析JSON
+                        if start_idx <= current_valid_line < end_idx:
+                            try:
+                                json_data = json.loads(line)
                                 data.append(json_data)
-                            
-                            current_valid_line += 1
-                            
-                            # 如果已经获取完当前页的数据，提前退出
-                            if current_valid_line >= end_idx:
-                                break
-                                
-                        except json.JSONDecodeError:
-                            continue
+                            except json.JSONDecodeError:
+                                # 如果JSON解析失败，创建一个包含原始文本的对象
+                                data.append({"error": "JSON解析失败", "raw_text": line[:200] + "..." if len(line) > 200 else line})
+                        
+                        current_valid_line += 1
+                        
+                        # 如果已经获取完当前页的数据，提前退出
+                        if current_valid_line >= end_idx:
+                            break
             
             return data, total_valid_lines
             
