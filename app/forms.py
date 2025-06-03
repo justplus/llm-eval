@@ -21,10 +21,10 @@ class AIModelForm(FlaskForm):
     display_name = StringField('模型显示名称', validators=[DataRequired(), Length(max=100)])
     api_base_url = StringField('API Base URL', validators=[DataRequired(), URL(), Length(max=255)])
     model_identifier = StringField('模型标识 (API调用名)', validators=[DataRequired(), Length(max=100)])
-    api_key = StringField('API Key (可选，如需更新或设置请填写)', validators=[Optional(), Length(max=500)]) # Increased length for safety
+    api_key = StringField('API Key', validators=[DataRequired(), Length(max=500)])
     provider_name = StringField('提供商名称 (可选)', validators=[Optional(), Length(max=100)])
     system_prompt = TextAreaField('默认系统提示 (可选)', validators=[Optional()])
-    default_temperature = FloatField('默认Temperature (0-2, 可选)', validators=[Optional(), NumberRange(min=0.0, max=2.0)])
+    default_temperature = FloatField('默认Temperature (0-1, 可选)', validators=[Optional(), NumberRange(min=0.0, max=1.0)])
     notes = TextAreaField('备注 (可选)', validators=[Optional()])
     submit = SubmitField('保存模型')
 
@@ -37,12 +37,16 @@ class CustomDatasetForm(FlaskForm):
                                    option_widget=CheckboxInput())
     publish_date = StringField('发布时间', validators=[Optional(), Length(max=50)])
     format = SelectField('数据集格式', 
-                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)'), ('FILL', '填空题格式 (FILL)')], 
+                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)'), ('CUSTOM', '自定义格式 (CUSTOM)')], 
                         validators=[DataRequired()],
                         default='QA')
+    benchmark_name = SelectField('Benchmark类型', 
+                                choices=[],  # 将在视图中动态设置
+                                validators=[Optional()],  # 改为可选，因为会根据format自动设置
+                                default='general_qa')
     dataset_file = FileField('数据集文件上传', 
                              validators=[DataRequired(), FileAllowed(['csv', 'jsonl'], '仅允许上传 CSV 或 JSONL 文件!')],
-                             description='选择题格式(MCQ)请上传CSV文件；问答题格式(QA)和填空题格式(FILL)请上传JSONL文件')
+                             description='选择题格式(MCQ)请上传CSV文件；问答题格式(QA)和自定义格式(CUSTOM)请上传JSONL文件')
     sample_data_json = TextAreaField('数据集结构信息 (JSON格式)', 
                                    validators=[Optional()],
                                    description='请粘贴JSON格式的数据集结构信息，例如：{"子集名称": {"features": {"字段1": {"_type": "Value"}}}}')

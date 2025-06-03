@@ -138,8 +138,6 @@ dmypy.json
 cython_debug/
 
 .cursor/
-需求.md
-WechatIMG117.jpg
 
 outputs/
 migrations/

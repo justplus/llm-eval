@@ -60,14 +60,14 @@
                     <!-- 裁判模型 -->
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text">裁判模型 (系统模型)</span>
+                            <span class="label-text">裁判模型</span>
                             <span class="label-text-alt text-info" title="裁判模型将对被评估模型的回答进行评分">
                                 <i class="fas fa-info-circle"></i>
                             </span>
                         </label>
                         <select name="judge_model_id" class="select select-bordered w-full">
                             <option value="">请选择裁判模型</option>
-                            {% for model in system_models %}
+                            {% for model in all_models %}
                                 <option value="{{ model.id }}">{{ model.display_name }}</option>
                             {% endfor %}
                         </select>

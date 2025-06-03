@@ -37,6 +37,23 @@
                 {% endif %}
             </div>
 
+            <div class="form-control w-full" id="benchmark-field">
+                <label class="label" for="{{ form.benchmark_name.id }}">
+                    <span class="label-text">{{ form.benchmark_name.label.text }}<span class="text-error">*</span></span>
+                </label>
+                {{ form.benchmark_name(class="select select-bordered w-full") }}
+                {% if form.benchmark_name.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">
+                            {% for error in form.benchmark_name.errors %}{{ error }}<br>{% endfor %}
+                        </span>
+                    </label>
+                {% endif %}
+                <label class="label pt-0">
+                    <span class="label-text-alt">用于选择对应的adapter对数据进行评估，这里只显示注册成功的适配器</span>
+                </label>
+            </div>
+
             <div class="form-control">
                 <div class="collapse collapse-arrow border border-base-300 bg-base-100 rounded-box">
                     <input type="checkbox" /> 
@@ -74,7 +91,7 @@
                         </div>
                         
                         <div id="fill-format-info" class="mb-4 hidden">
-                            <h3 class="font-bold mb-2">填空题格式 (FILL) - JSONL文件</h3>
+                            <h3 class="font-bold mb-2">自定义格式 (CUSTOM) - JSONL文件</h3>
                             <div class="mockup-code max-h-60 overflow-y-auto">
                                 <pre data-prefix="1"><code>{"history": [{"user": "xx", "assistant": "xx"}], "question": "xx","answer": "xxx"}</code></pre>
                                 <pre data-prefix="2"><code>{"question": "xx", "answer": "xx"}</code></pre>
@@ -82,7 +99,7 @@
                             <p class="text-sm mt-2">
                                 <span class="font-bold">history</span>: 历史对话信息，首轮不用填，有的话使用list格式<br>
                                 <span class="font-bold">question</span>: 用户问题<br>
-                                <span class="font-bold">answer</span>: 正确答案（必须字段）
+                                <span class="font-bold">answer</span>: 正确答案（必须字段）<br>
                             </p>
                         </div>
                     </div>
@@ -137,7 +154,7 @@
             </div>
 
             <div class="card-actions justify-end pt-4">
-                <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-ghost">取消</a>
+                <a href="{{ url_for('datasets.datasets_list') }}" class="btn btn-ghost">取消</a>
                 {{ forms.render_submit_button(form.submit, class='btn-primary', id='submit-btn') }}
             </div>
         </form>
@@ -168,11 +185,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const qaFormatInfo = document.getElementById('qa-format-info');
     const mcqFormatInfo = document.getElementById('mcq-format-info');
     const fillFormatInfo = document.getElementById('fill-format-info');
+    const benchmarkField = document.getElementById('benchmark-field');
     const form = document.querySelector('form');
     const submitBtn = document.getElementById('submit-btn');
     const fileInput = document.querySelector('input[type="file"]');
     
-    // 初始显示正确的格式说明
+    // 初始显示正确的格式说明和benchmark字段
     updateFormatInfo(formatSelect.value);
     
     // 监听格式选择变化
@@ -223,12 +241,20 @@ document.addEventListener('DOMContentLoaded', function() {
         mcqFormatInfo.classList.add('hidden');
         fillFormatInfo.classList.add('hidden');
         
+        // 控制benchmark字段的显示
+        if (format === 'QA' || format === 'MCQ') {
+            // 问答题和选择题隐藏benchmark选择器
+            benchmarkField.style.display = 'none';
+        } else {
+            benchmarkField.style.display = 'block';
+        }
+        
         // 显示对应的格式说明
         if (format === 'QA') {
             qaFormatInfo.classList.remove('hidden');
         } else if (format === 'MCQ') {
             mcqFormatInfo.classList.remove('hidden');
-        } else if (format === 'FILL') {
+        } else if (format === 'CUSTOM') {
             fillFormatInfo.classList.remove('hidden');
         }
     }

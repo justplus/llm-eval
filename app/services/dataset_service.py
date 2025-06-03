@@ -1,11 +1,11 @@
 import json
 import os
-from typing import Dict, List, Tuple
 from flask import current_app
-
+from typing import List, Dict, Tuple
 
 # 导入ModelScope的SDK
 from modelscope import MsDataset
+from evalscope.benchmarks.benchmark import BENCHMARK_MAPPINGS
 
 class DatasetService:
     """
@@ -96,7 +96,7 @@ class DatasetService:
                 return [], 0
                 
         except Exception as e:
-            print(f"Error loading local dataset: {e}")
+            current_app.logger.error(f"Error loading local dataset: {e}")
             return [], 0
     
     @staticmethod
@@ -146,7 +146,7 @@ class DatasetService:
             return data, total_valid_lines
             
         except Exception as e:
-            print(f"Error loading JSONL file: {e}")
+            current_app.logger.error(f"Error loading JSONL file: {e}")
             return [], 0
     
     @staticmethod
@@ -194,7 +194,7 @@ class DatasetService:
             return data, total_rows
             
         except Exception as e:
-            print(f"Error loading CSV file: {e}")
+            current_app.logger.error(f"Error loading CSV file: {e}")
             return [], 0
     
     @staticmethod
@@ -219,9 +219,8 @@ class DatasetService:
                 subset_name=subset,
                 split=split,
                 namespace='modelscope',
-                cache_dir=current_app.config.get('DATASET_UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+                cache_dir=current_app.config.get('DATA_UPLOADS_DIR', os.path.join(current_app.root_path, 'uploads'))
             )
-            print(dataset[0])
             
             # 计算总数据量
             total_items = len(dataset)
@@ -238,5 +237,43 @@ class DatasetService:
             
             return data, total_items
         except Exception as e:
-            print(f"Error loading data from ModelScope: {e}")
+            current_app.logger.error(f"Error loading data from ModelScope: {e}")
             return [], 0 
+
+def get_available_benchmarks(exclude_general=False):
+    """获取可用的benchmark选项
+    
+    Args:
+        exclude_general: 是否排除general_qa和general_mcq选项
+    """
+    try:
+        benchmarks = []
+        
+        # 如果不排除general选项，添加固定的选项
+        if not exclude_general:
+            benchmarks.extend([
+                ('general_qa', 'General QA (问答题)'),
+                ('general_mcq', 'General MCQ (选择题)')
+            ])
+        
+        # 从BENCHMARK_MAPPINGS中获取以custom_开头的benchmark
+        custom_benchmarks = []
+        for benchmark_name in BENCHMARK_MAPPINGS.keys():
+            if benchmark_name.startswith('custom_'):
+                # 生成友好的显示名称
+                display_name = benchmark_name.replace('custom_', '').replace('_', ' ').title()
+                custom_benchmarks.append((benchmark_name, f'{display_name} (自定义)'))
+        
+        benchmarks.extend(custom_benchmarks)
+        return benchmarks
+        
+    except Exception as e:
+        current_app.logger.error(f"获取benchmark选项失败: {str(e)}")
+        # 返回默认选项
+        if not exclude_general:
+            return [
+                ('general_qa', 'General QA (问答题)'),
+                ('general_mcq', 'General MCQ (选择题)')
+            ]
+        else:
+            return [] 

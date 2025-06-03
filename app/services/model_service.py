@@ -7,7 +7,7 @@ from app.utils import get_beijing_time
 
 # --- System Models Cache ---
 _system_models_cache = {"data": None, "last_fetched_utc": None}
-CACHE_DURATION_SECONDS = 3600  # 1 小时
+CACHE_DURATION_SECONDS = 360 * 24  # 24 小时
 
 # --- System Models Configuration ---
 # SYSTEM_PROVIDER_BASE_URL is now fetched from app.config
@@ -172,8 +172,6 @@ def get_all_models_for_user(user):
     query = AIModel.query.order_by(AIModel.is_system_model.asc(), AIModel.display_name.asc())
     
     if user.is_authenticated:
-
-        all_models = query.all()
         user_custom_models = AIModel.query.filter_by(user_id=user.id, is_system_model=False).order_by(AIModel.display_name.asc()).all()
         all_system_models = AIModel.query.filter_by(is_system_model=True).order_by(AIModel.display_name.asc()).all()
         

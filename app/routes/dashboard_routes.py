@@ -13,7 +13,4 @@ def index():
 @bp.route('/dashboard')
 @login_required
 def dashboard():
-    # This will be the main page after login, showing models, chat options, etc.
-    # For now, a simple placeholder.
-    print('------')
     return render_template('dashboard.html', title='仪表盘') 

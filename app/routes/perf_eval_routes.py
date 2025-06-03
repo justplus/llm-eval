@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app import db
-from app.models import PerformanceEvalTask, AIModel, SystemDataset
+from app.models import PerformanceEvalTask, AIModel, Dataset
 from app.forms import PerformanceEvalForm
 from app.services.perf_service import PerformanceEvaluationService
 from sqlalchemy import and_, or_
@@ -26,17 +26,17 @@ def create():
     # 获取可用的数据集
     # 权限控制：自己创建的自建数据集 + 别人公开的自建数据集
     available_datasets = [
-        (d.id, d.name) for d in SystemDataset.query.filter(
+        (d.id, d.name) for d in Dataset.query.filter(
             and_(
-                SystemDataset.is_active == True,
-                SystemDataset.dataset_type == '自建',
+                Dataset.is_active == True,
+                Dataset.dataset_type == '自建',
                 or_(
                     # 自己创建的自建数据集（无论是否公开）
-                    SystemDataset.source == current_user.username,
+                    Dataset.source == current_user.username,
                     # 别人创建的公开自建数据集
                     and_(
-                        SystemDataset.source != current_user.username,
-                        SystemDataset.visibility == '公开'
+                        Dataset.source != current_user.username,
+                        Dataset.visibility == '公开'
                     )
                 )
             )

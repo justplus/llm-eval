@@ -1,6 +1,6 @@
 from flask import current_app
 from app import db
-from app.models import PerformanceEvalTask, AIModel, SystemDataset
+from app.models import PerformanceEvalTask, AIModel, Dataset
 from app.utils import get_beijing_time
 import multiprocessing
 import tempfile
@@ -10,7 +10,6 @@ import pickle
 import signal
 import time
 import re
-import json
 from typing import Tuple, Dict, List, Any, Optional
 from evalscope.perf.utils.db_util import PercentileMetrics
 from evalscope.perf.utils.benchmark_util import Metrics
@@ -19,7 +18,7 @@ from evalscope.perf.utils.benchmark_util import Metrics
 from evalscope.perf.main import run_perf_benchmark
 
 # 导入自定义数据集插件，确保装饰器能够正确注册
-from app.adapter.general_intent_dataset_plugin import CustomDatasetPlugin
+from app.adapter.custom_intent_dataset_plugin import CustomIntentDatasetPlugin
 
 
 class PerformanceEvaluationService:
@@ -138,7 +137,7 @@ class PerformanceEvaluationService:
             raise TimeoutError("性能评估任务执行超时")
         
         try:
-            print(f"开始执行性能评估任务 {task_id}, 配置: {task_cfg}")
+            current_app.logger.info(f"开始执行性能评估任务 {task_id}, 配置: {task_cfg}")
             
             # 设置总任务超时时间（15分钟）
             signal.signal(signal.SIGALRM, timeout_handler)
@@ -153,18 +152,18 @@ class PerformanceEvaluationService:
             signal.alarm(0)
             
             elapsed_time = time.time() - start_time
-            print(f"性能评估任务 {task_id} 执行耗时: {elapsed_time:.2f}秒")
+            current_app.logger.info(f"性能评估任务 {task_id} 执行耗时: {elapsed_time:.2f}秒")
             
             # 将结果序列化到文件
             with open(output_file_path, 'wb') as f:
                 pickle.dump(result_tuple, f)
                 
-            print(f"性能评估任务 {task_id} 已完成，结果已保存到 {output_file_path}")
+            current_app.logger.info(f"性能评估任务 {task_id} 已完成，结果已保存到 {output_file_path}")
             
         except TimeoutError:
             signal.alarm(0)
             error_msg = f"性能评估任务 {task_id} 执行超时（15分钟），可能是模型服务不可用"
-            print(error_msg)
+            current_app.logger.error(error_msg)
             with open(output_file_path, 'wb') as f:
                 pickle.dump(("ERROR", error_msg), f)
                 
@@ -178,8 +177,8 @@ class PerformanceEvaluationService:
             else:
                 error_msg = f"性能评估任务 {task_id} 执行失败: {str(e)}"
                 
-            print(error_msg)
-            print(traceback.format_exc())
+            current_app.logger.error(error_msg)
+            current_app.logger.error(traceback.format_exc())
             
             # 将错误信息写入输出文件
             with open(output_file_path, 'wb') as f:
@@ -411,7 +410,7 @@ class PerformanceEvaluationService:
                 current_app.logger.error(f"模型ID {model_id} 不存在")
                 return None
                 
-            dataset = SystemDataset.query.get(dataset_id)
+            dataset = Dataset.query.get(dataset_id)
             if not dataset:
                 current_app.logger.error(f"数据集ID {dataset_id} 不存在")
                 return None
@@ -465,7 +464,7 @@ class PerformanceEvaluationService:
                 return
                 
             # 根据数据集名称查找数据集
-            selected_dataset = SystemDataset.query.get(dataset_id)
+            selected_dataset = Dataset.query.get(dataset_id)
             if not selected_dataset:
                 current_app.logger.error(f"找不到数据集ID为 {dataset_id} 的数据集")
                 return
@@ -477,7 +476,7 @@ class PerformanceEvaluationService:
                 "model": selected_model.model_identifier,
                 "number": num_requests,
                 "api": 'openai',
-                "dataset": 'general_intent',
+                "dataset": selected_dataset.benchmark_name,
                 "dataset_path": selected_dataset.download_url,  # 使用数据集的下载地址
                 "stream": True
             }

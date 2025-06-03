@@ -4,7 +4,6 @@ Flask-Migrate
 Flask-Login
 Flask-WTF
 WTForms
-# Pydantic # Not directly used in backend forms for now, can be added if API validation is needed
 requests
 python-dotenv
 PyMySQL
@@ -12,11 +11,9 @@ openai
 modelscope
 evalscope
 evalscope[perf]
-# 数据处理相关
 pandas
 numpy
 openpyxl
-# Web服务器
 gunicorn
 # 其他必要依赖
 Werkzeug
@@ -25,12 +22,7 @@ MarkupSafe
 itsdangerous
 click
 blinker
-# 用于处理文件上传
 Pillow
-# 用于JSON处理
 simplejson
-# For development (optional, but recommended)
-# Flask-Testing
-# pytest 
 tiktoken
 omegaconf

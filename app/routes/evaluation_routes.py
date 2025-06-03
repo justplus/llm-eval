@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, abort, make_response
 from flask_login import login_required, current_user
 from app import db
-from app.models import AIModel, SystemDataset, ModelEvaluation, ModelEvaluationResult, ModelEvaluationDataset
+from app.models import AIModel, Dataset, ModelEvaluation, ModelEvaluationResult, ModelEvaluationDataset
 from app.services.evaluation_service import EvaluationService
 import json
 from math import ceil # 用于分页计算
@@ -49,33 +49,36 @@ def create_evaluation():
         # 获取系统内置模型列表 (裁判模型)
         system_models = AIModel.query.filter_by(is_system_model=True).all()
         current_app.logger.info(f"系统模型数量: {len(system_models)}")
+
+        all_models = AIModel.query.all()
         
         # 获取已启用的数据集列表 - 修复权限问题
         # 1. 自己创建的所有数据集（无论是否公开）
         # 2. 别人创建的公开数据集
-        datasets = SystemDataset.query.filter(
-            SystemDataset.is_active == True
+        datasets = Dataset.query.filter(
+            Dataset.is_active == True
         ).filter(
             or_(
                 # 自己创建的所有数据集
-                SystemDataset.source == current_user.username,
+                Dataset.source == current_user.username,
                 # 别人创建的公开数据集
                 and_(
-                    SystemDataset.source != current_user.username,
-                    SystemDataset.visibility == '公开'
+                    Dataset.source != current_user.username,
+                    Dataset.visibility == '公开'
                 ),
                 # 系统数据集（source为空或为'系统'）
                 or_(
-                    SystemDataset.source.is_(None),
-                    SystemDataset.source == '系统'
+                    Dataset.source.is_(None),
+                    Dataset.source == '系统'
                 )
             )
-        ).order_by(SystemDataset.name).all()
+        ).order_by(Dataset.name).all()
         
         return render_template(
             'evaluations/create_evaluation.html',
             custom_models=custom_models,
             system_models=system_models,
+            all_models=all_models,
             datasets=datasets,
             title="创建模型评估"
         )
@@ -103,11 +106,6 @@ def create_evaluation():
                 flash('您只能选择自己的自定义模型进行评估。', 'error')
                 return redirect(url_for('evaluations.create_evaluation'))
                 
-            # 检查裁判模型是否为系统模型
-            if judge_model and not judge_model.is_system_model:
-                flash('裁判模型必须是系统内置模型。', 'error')
-                return redirect(url_for('evaluations.create_evaluation'))
-            
             # 获取选择的数据集 (不再需要子集和分割)
             datasets_data = []
             selected_dataset_ids = []
@@ -122,7 +120,7 @@ def create_evaluation():
             
             # 验证所选数据集是否存在且已启用
             for ds_id in selected_dataset_ids:
-                dataset = SystemDataset.query.filter_by(id=ds_id, is_active=True).first()
+                dataset = Dataset.query.filter_by(id=ds_id, is_active=True).first()
                 if not dataset:
                     flash(f'选择的数据集ID {ds_id} 无效或未启用。', 'error')
                     return redirect(url_for('evaluations.create_evaluation'))
@@ -169,7 +167,7 @@ def view_evaluation(evaluation_id):
     # 获取评估数据集信息 (不再包含子集和分割)
     datasets_info = []
     for eval_dataset_assoc in evaluation.datasets:
-        dataset = SystemDataset.query.get(eval_dataset_assoc.dataset_id)
+        dataset = Dataset.query.get(eval_dataset_assoc.dataset_id)
         if dataset:
             datasets_info.append({
                 'dataset': dataset,

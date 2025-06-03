@@ -5,35 +5,29 @@ from app.models import (
     ModelEvaluationDataset, 
     ModelEvaluationResult, 
     AIModel, 
-    SystemDataset, 
+    Dataset, 
 )
 from flask import current_app
 import threading
 from app.services.model_service import get_decrypted_api_key
 from app.utils import get_beijing_time
 
-# Evalscope imports
 from evalscope.run import run_task
 from evalscope.constants import JudgeStrategy
 import os
 import json
 import pandas as pd
-from datetime import datetime
 
 # 辅助函数，尝试将evalscope的Report对象转换为可序列化的字典
 def serialize_evalscope_report(report_obj):
     if hasattr(report_obj, 'to_dict') and callable(report_obj.to_dict):
         return report_obj.to_dict()
-    # 如果没有to_dict，尝试直接转换，但这可能对复杂对象无效
-    # 你可能需要根据ReportObject的实际结构来实现更复杂的序列化逻辑
     try:
-        # 尝试使用vars()，但这只对简单对象有效
         return vars(report_obj) 
     except TypeError:
-        #最后的手段，转为字符串，但这会丢失结构
         return str(report_obj) 
 
-# 定义evalscope输出结构中review目录的名称 (基于用户提供的代码)
+# 定义evalscope输出结构中review目录的名称
 OUTPUTS_STRUCTURE_REVIEWS_DIR = 'reviews'
 
 class EvaluationService:
@@ -133,7 +127,7 @@ class EvaluationService:
 
             # 获取所有参与评估的数据集的名称 (这些是传递给evalscope的名称)
             for assoc in eval_dataset_associations:
-                dataset = SystemDataset.query.get(assoc.dataset_id)
+                dataset = Dataset.query.get(assoc.dataset_id)
                 if dataset:
                     if dataset.dataset_type == '系统':
                         # 系统数据集直接使用名称
@@ -182,28 +176,22 @@ class EvaluationService:
                                 if dataset_name not in dataset_args['general_qa']['subset_list']:
                                     dataset_args['general_qa']['subset_list'].append(dataset_name)
                         
-                        elif dataset.format == 'FILL':
-                            # 填空题格式也使用general_qa处理，因为它们都是JSONL格式的问答类型
-                            if 'general_intent' not in dataset_names_for_evalscope:
-                                dataset_names_for_evalscope.append('general_intent')
-                            
+                        elif dataset.format == 'CUSTOM':
+                            dataset_names_for_evalscope.append(dataset.benchmark_name)
                             # 获取上传目录的路径
                             dataset_file_path = dataset.download_url
                             dataset_dir = os.path.dirname(dataset_file_path)
                             dataset_name = os.path.splitext(os.path.basename(dataset_file_path))[0]
-                            
-                            # 确保有general_qa的dataset_args
-                            if 'general_intent' not in dataset_args:
-                                dataset_args['general_intent'] = {
+                             # 确保有general_qa的dataset_args
+                            if 'general_qa' not in dataset_args:
+                                dataset_args[dataset.benchmark_name] = {
                                     "local_path": dataset_dir,
                                     "subset_list": [dataset_name],
-                                    'filters': {'remove_until': '</think>'}
+                                    'filters': {'remove_until': '</think>'} 
                                 }
                             else:
-                                # 如果已存在，添加到subset_list
-                                if dataset_name not in dataset_args['general_intent']['subset_list']:
-                                    dataset_args['general_intent']['subset_list'].append(dataset_name)
-                        
+                                if dataset_name not in dataset_args[dataset.benchmark_name]['subset_list']:
+                                        dataset_args[dataset.benchmark_name]['subset_list'].append(dataset_name)
                         current_app.logger.info(f"[评估任务 {evaluation_id}] 添加自建数据集 {dataset.name}，格式: {dataset.format}，文件路径: {dataset.download_url}")
                 else:
                     current_app.logger.warning(f"[评估任务 {evaluation_id}] 数据集ID {assoc.dataset_id} 无法找到或名称为空，已跳过。")
@@ -248,7 +236,12 @@ class EvaluationService:
                     task_cfg_args['judge_model_args'] = {
                         'model_id': judge_model_identifier,
                         'api_url': judge_api_url if judge_api_url else '',
-                        'api_key': judge_api_key if judge_api_key else ''
+                        'api_key': judge_api_key if judge_api_key else '',
+                        'generation_config': {
+                            # 'stream': True,
+                            'timeout': 12000,
+                            'temperature': evaluation.temperature
+                        }
                     }
                 
                 # 如果有自建数据集，添加dataset_args参数
@@ -262,7 +255,6 @@ class EvaluationService:
                 # 使用TaskConfig创建配置对象
                 task_cfg = TaskConfig(**task_cfg_args)
                 
-                print(f'{judge_model_identifier} {judge_api_url} {judge_api_key}')
                 current_app.logger.info(f"[评估任务 {evaluation_id}] Evalscope task_cfg: {task_cfg_args}")
             except ImportError:
                 # 如果无法导入TaskConfig，则回退到使用字典
@@ -294,7 +286,6 @@ class EvaluationService:
                 if evaluation.limit and int(evaluation.limit) > 0:
                     task_cfg['limit'] = int(evaluation.limit)
 
-                print(f'{judge_model_identifier} {judge_api_url} {judge_api_key}')
                 current_app.logger.info(f"[评估任务 {evaluation_id}] Evalscope task_cfg: {json.dumps(task_cfg, indent=2)}")
 
             evalscope_final_report = {}
@@ -337,6 +328,28 @@ class EvaluationService:
                                 
                                 filename_stem = review_filename_in_dir[:-6] # Remove .jsonl
                                 
+                                # 根据filename_stem查找对应的dataset
+                                corresponding_dataset = None
+                                for assoc in eval_dataset_associations:
+                                    dataset = Dataset.query.get(assoc.dataset_id)
+                                    if dataset:
+                                        if dataset.dataset_type == '系统':
+                                            # 系统数据集直接比较名称
+                                            if dataset.name in filename_stem:
+                                                corresponding_dataset = dataset
+                                                break
+                                        elif dataset.dataset_type == '自建':
+                                            # 自建数据集比较文件名（去掉扩展名后的部分）
+                                            if dataset.download_url:
+                                                dataset_filename = os.path.splitext(os.path.basename(dataset.download_url))[0]
+                                                if dataset.benchmark_name+'_'+dataset_filename == filename_stem:
+                                                    corresponding_dataset = dataset
+                                                    break
+                                
+                                if not corresponding_dataset:
+                                    current_app.logger.warning(f"[评估任务 {evaluation_id}] 无法找到filename_stem '{filename_stem}' 对应的数据集，跳过该文件")
+                                    continue
+
                                 try:
                                     origin_df = pd.read_json(review_file_path, lines=True)
                                     for _, item in origin_df.iterrows():
@@ -388,7 +401,6 @@ class EvaluationService:
                                                         if correct_count + miss_count + fail_count == 0:
                                                             slot_f1 = 1.0
                                                         
-                                                        # 最终分数 = intent_result * slot_f1
                                                         score = float(intent_result) * 0.5 + 0.5 * slot_f1
                                                         current_app.logger.debug(f"[评估任务 {evaluation_id}] 复合结果计算: intent={intent_result}, slot_f1={slot_f1:.4f}, final_score={score:.4f}")
                                                     else:
@@ -403,7 +415,7 @@ class EvaluationService:
 
                                         result_entry = ModelEvaluationResult(
                                             evaluation_id=evaluation.id,
-                                            dataset_name=filename_stem,
+                                            dataset_id=corresponding_dataset.id,  # 使用corresponding_dataset
                                             question=str(raw_input),
                                             model_answer=str(raw_pred_answer),
                                             reference_answer=str(parsed_gold_answer),
@@ -501,6 +513,14 @@ class EvaluationService:
         
         total = query.count()
         results = query.paginate(page=page, per_page=per_page, error_out=False).items
+        # 为每个结果添加userPrompt
+        for result in results:
+            try:
+                result.user_prompt = EvaluationService._get_user_prompt_for_result(result)
+            except Exception as e:
+                current_app.logger.error(f"获取结果 {result.id} 的userPrompt失败: {str(e)}")
+                result.user_prompt = "无法获取用户提示"
+        
         current_app.logger.info(f"[评估结果查询] EvalID: {evaluation_id}, UserID: {user_id}, Page: {page}, Search: '{search_query}', ScoreRange: [{min_score}, {max_score}], Found: {len(results)}, Total: {total}")
         return results, total
 
@@ -569,41 +589,11 @@ class EvaluationService:
                     
                     # 处理当前批次数据
                     for idx, result in enumerate(batch_results, start=batch_start + 1):
-                        # 处理问题字段，提取多轮对话
-                        formatted_question = ""
+                        # 使用统一的user_prompt获取方法
                         try:
-                            import json as json_lib
-                            import ast
-                            question_data = json_lib.loads(result.question)
-                        except (json.JSONDecodeError, TypeError, ValueError):
-                            question_data = ast.literal_eval(result.question)                            
-                            # 构建多轮对话
-                            conversation_parts = []
-                            
-                            # 添加历史对话
-                            history = question_data.get('history') or question_data.get('hisotory', [])
-                            if history:
-                                for turn_idx, turn in enumerate(history, 1):
-                                    if turn.get('user'):
-                                        conversation_parts.append(f"用户: {turn['user']}")
-                                    if turn.get('assistant'):
-                                        conversation_parts.append(f"助手: {turn['assistant']}")
-                            
-                            # 添加当前用户问题
-                            current_user_input = (question_data.get('user') or 
-                                                question_data.get('question') or 
-                                                question_data.get('query'))
-                            if current_user_input:
-                                conversation_parts.append(f"用户: {current_user_input}")
-                            
-                            # 组合成完整对话
-                            if conversation_parts:
-                                formatted_question = "\n".join(conversation_parts)
-                            else:
-                                formatted_question = result.question
-                                
-                        except (ValueError, SyntaxError, TypeError):
-                            # 如果不是JSON格式或解析失败，使用原始问题
+                            formatted_question = EvaluationService._get_user_prompt_for_result(result)
+                        except Exception as e:
+                            current_app.logger.error(f"获取结果 {result.id} 的userPrompt失败: {str(e)}")
                             formatted_question = result.question
                         
                         all_data.append({
@@ -612,7 +602,7 @@ class EvaluationService:
                             '模型回答': result.model_answer,
                             '参考答案': result.reference_answer or '无',
                             '得分': result.score if result.score is not None else '无评分',
-                            '数据集': result.dataset_name
+                            '数据集': result.dataset.name if result.dataset else '未知数据集'
                         })
                     
                     # 清理当前批次以释放内存
@@ -667,4 +657,171 @@ class EvaluationService:
             
         except Exception as e:
             current_app.logger.error(f"导出Excel失败: {str(e)}")
+            return None 
+
+    @staticmethod
+    def _get_user_prompt_for_result(result: 'ModelEvaluationResult') -> str:
+        """为单个评估结果获取格式化的userPrompt"""
+        try:
+            # 解析question字段获取原始输入数据
+            import ast
+            try:
+                raw_input_data = json.loads(result.question)
+            except (json.JSONDecodeError, TypeError):
+                # 如果JSON解析失败，尝试使用ast.literal_eval
+                try:
+                    raw_input_data = ast.literal_eval(result.question)
+                except (ValueError, SyntaxError):
+                    # 如果都失败，直接返回原始问题
+                    return result.question
+            
+            # 首先尝试使用adapter生成完整的prompt
+            # 通过result.dataset获取数据集信息，然后使用benchmark_name
+            dataset = result.dataset
+            if not dataset:
+                # 如果没有dataset关系，回退到格式化逻辑
+                return EvaluationService._format_prompt_from_raw_data(raw_input_data)
+            
+            benchmark_name = dataset.benchmark_name
+            adapter = EvaluationService._get_adapter_for_dataset(benchmark_name)
+            
+            if adapter:
+                try:
+                    # 调用adapter的gen_prompt方法
+                    prompt_data = adapter.gen_prompt(raw_input_data, benchmark_name, []) 
+                    # 提取prompt字段
+                    if isinstance(prompt_data, dict):
+                        adapter_prompt = prompt_data.get('data', []) or prompt_data.get('user_prompt', '')
+                        if adapter_prompt:
+                            # 处理不同类型的adapter_prompt
+                            if isinstance(adapter_prompt, list):
+                                # 如果是列表，拼接成字符串
+                                formatted_prompt = '\n'.join(str(item) for item in adapter_prompt)
+                            else:
+                                # 如果是字符串，直接使用
+                                formatted_prompt = str(adapter_prompt)
+                            
+                            # 将\n转换为真正的换行符
+                            formatted_prompt = formatted_prompt.replace('\\n', '\n')
+                            
+                            return formatted_prompt
+                except Exception as e:
+                    current_app.logger.warning(f"使用adapter生成prompt失败: {str(e)}")
+            
+            # 如果adapter方法失败，使用自定义格式化逻辑
+            return EvaluationService._format_prompt_from_raw_data(raw_input_data)
+                
+        except Exception as e:
+            current_app.logger.error(f"解析结果userPrompt时出错: {str(e)}")
+            return "解析错误"
+
+    @staticmethod
+    def _format_prompt_from_raw_data(raw_input_data: dict) -> str:
+        """从原始数据格式化完整的prompt显示"""
+        try:
+            formatted_parts = []
+            
+            # 处理历史对话
+            history = raw_input_data.get('history') or raw_input_data.get('hisotory', [])
+            if history and isinstance(history, list):
+                for turn_idx, turn in enumerate(history):
+                    if isinstance(turn, dict):
+                        if turn.get('user'):
+                            formatted_parts.append(f"👤 用户: {turn['user']}")
+                        if turn.get('assistant'):
+                            formatted_parts.append(f"🤖 助手: {turn['assistant']}")
+                    elif isinstance(turn, list) and len(turn) >= 2:
+                        # 处理 [user, assistant] 格式
+                        formatted_parts.append(f"👤 用户: {turn[0]}")
+                        formatted_parts.append(f"🤖 助手: {turn[1]}")
+                
+                # 如果有历史对话，添加分隔符
+                if formatted_parts:
+                    formatted_parts.append("─" * 50)
+            
+            # 处理当前问题 - 尝试多个可能的字段名
+            current_question = None
+            question_fields = ['question', 'user', 'query', 'prompt', 'input']
+            
+            for field in question_fields:
+                if field in raw_input_data:
+                    value = raw_input_data[field]
+                    if isinstance(value, str) and value.strip():
+                        current_question = value.strip()
+                        break
+            
+            if current_question:
+                formatted_parts.append(f"👤 用户: {current_question}")
+            
+            # 处理选择题选项（如果是MCQ格式）
+            if 'A' in raw_input_data or 'choices' in raw_input_data:
+                choices_text = EvaluationService._format_choices(raw_input_data)
+                if choices_text:
+                    formatted_parts.append(choices_text)
+            
+            # 处理系统提示（如果有）
+            if 'system' in raw_input_data and raw_input_data['system']:
+                system_prompt = raw_input_data['system']
+                formatted_parts.insert(0, f"🔧 系统: {system_prompt}")
+                formatted_parts.insert(1, "─" * 50)
+            
+            if formatted_parts:
+                return "\n".join(formatted_parts)
+            else:
+                # 如果所有字段都为空，返回原始数据的字符串表示
+                return str(raw_input_data)
+                
+        except Exception as e:
+            current_app.logger.error(f"格式化prompt时出错: {str(e)}")
+            return str(raw_input_data)
+
+    @staticmethod
+    def _format_choices(raw_input_data: dict) -> str:
+        """格式化选择题选项"""
+        try:
+            choices_parts = []
+            
+            # 方式1: 处理 A, B, C, D 格式的选项
+            option_keys = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+            found_options = []
+            
+            for key in option_keys:
+                if key in raw_input_data and raw_input_data[key]:
+                    found_options.append(f"{key}. {raw_input_data[key]}")
+            
+            if found_options:
+                choices_parts.append("📋 选项:")
+                choices_parts.extend(found_options)
+            
+            # 方式2: 处理 choices 数组格式
+            elif 'choices' in raw_input_data:
+                choices = raw_input_data['choices']
+                if isinstance(choices, list):
+                    choices_parts.append("📋 选项:")
+                    for idx, choice in enumerate(choices):
+                        letter = chr(ord('A') + idx)
+                        choices_parts.append(f"{letter}. {choice}")
+            
+            return "\n".join(choices_parts) if choices_parts else ""
+            
+        except Exception as e:
+            current_app.logger.error(f"格式化选项时出错: {str(e)}")
+            return ""
+
+    @staticmethod
+    def _get_adapter_for_dataset(dataset_name: str):
+        """根据数据集名称获取对应的adapter实例"""
+        try:
+            # 导入BENCHMARK_MAPPINGS
+            from evalscope.benchmarks.benchmark import BENCHMARK_MAPPINGS
+            
+            # 统一通过BENCHMARK_MAPPINGS获取adapter
+            if dataset_name in BENCHMARK_MAPPINGS:
+                benchmark_meta = BENCHMARK_MAPPINGS[dataset_name]
+                adapter_class = benchmark_meta.data_adapter
+                return adapter_class(**benchmark_meta.to_dict())
+            return None
+            
+        except Exception as e:
+            current_app.logger.error(f"获取数据集 {dataset_name} 的adapter失败: {str(e)}")
             return None 

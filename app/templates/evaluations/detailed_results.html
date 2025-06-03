@@ -3,6 +3,24 @@
 {% block title %}详细评估结果 - {{ evaluation.name }} - {{ super() }}{% endblock %}
 
 {% block content %}
+<style>
+.formatted-text {
+    white-space: pre-line;
+    word-break: break-words;
+    font-size: 0.875rem;
+    line-height: 1.625;
+}
+.formatted-text:first-line {
+    margin-top: 0;
+    padding-top: 0;
+}
+/* 移除pre-line产生的首行上边距 */
+.formatted-text::before {
+    content: '';
+    display: block;
+    margin-top: -1.5em;
+}
+</style>
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">详细评估结果: {{ evaluation.name }}</h1>
@@ -108,57 +126,20 @@
                         {% endif %}
                     </div>
 
-                    <div class="my-2">
-                        <p class="font-semibold">问题:</p>
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-question-circle text-primary"></i>
+                            <span class="font-medium text-sm">问题</span>
+                        </div>
                         <div class="p-3 bg-base-300 rounded-lg mt-1">
-                            {% set question_data = result.question | from_json %}
-                            {% if question_data %}
-                                <!-- 对话历史 -->
-                                {% if question_data.history or question_data.hisotory %}
-                                <div class="space-y-3 mb-4">
-                                    {% for turn in (question_data.history or question_data.hisotory or []) %}
-                                        {% if turn.user %}
-                                        <div class="flex items-start gap-2">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                                                <i class="fas fa-user text-white text-xs"></i>
-                                            </div>
-                                            <div class="flex-1 min-w-0">
-                                                <!-- <div class="text-sm font-medium text-primary mb-1">User:</div> -->
-                                                <div class="text-sm whitespace-pre-wrap break-words">{{ turn.user }}</div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                        {% if turn.assistant %}
-                                        <div class="flex items-start gap-2">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center mt-1">
-                                                <i class="fas fa-robot text-white text-xs"></i>
-                                            </div>
-                                            <div class="flex-1 min-w-0">
-                                                <!-- <div class="text-sm font-medium text-secondary mb-1">Assistant:</div> -->
-                                                <div class="text-sm whitespace-pre-wrap break-words">{{ turn.assistant }}</div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
+                            <!-- 直接显示后端格式化的user_prompt -->
+                            <div class="formatted-text">
+                                {% if result.user_prompt %}
+                                    {{- result.user_prompt | trim -}}
+                                {% else %}
+                                    {{- result.question | trim -}}
                                 {% endif %}
-                                
-                                <!-- 当前问题 -->
-                                {% if question_data.question or question_data.user or question_data.query %}
-                                <div class="flex items-start gap-2">
-                                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                                        <i class="fas fa-user text-white text-xs"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <!-- <div class="text-sm font-medium text-accent mb-1">User:</div> -->
-                                        <div class="text-sm whitespace-pre-wrap break-words">{{ question_data.question or question_data.user or question_data.query }}</div>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            {% else %}
-                                <!-- 如果不是JSON格式，直接显示原文 -->
-                                <div class="whitespace-pre-wrap break-words">{{ result.question }}</div>
-                            {% endif %}
+                            </div>
                         </div>
                     </div>
 

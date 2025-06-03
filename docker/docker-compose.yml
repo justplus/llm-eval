@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: artifacts.iflytek.com/docker-repo/library/mysql:8.0
+    container_name: llm_eva_mysql
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:SXwx2scw3UWP}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CHARACTER_SET_SERVER: ${MYSQL_CHARACTER_SET_SERVER}
+      MYSQL_COLLATION_SERVER: ${MYSQL_COLLATION_SERVER}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - llm_eva_network
+
+  # Flask应用服务
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: llm_eva_web
+    restart: always
+    ports:
+      - "${WEB_PORT:-9999}:5000"
+    env_file:
+      - .env
+    environment:
+      # 数据库连接配置（复用MySQL配置）
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+      
+      # Flask配置
+      FLASK_APP: ${FLASK_APP}
+      FLASK_ENV: ${FLASK_ENV}
+      SECRET_KEY: ${SECRET_KEY}
+      
+      # API配置
+      SYSTEM_PROVIDER_BASE_URL: ${SYSTEM_PROVIDER_BASE_URL}
+      SYSTEM_PROVIDER_API_KEY: ${SYSTEM_PROVIDER_API_KEY}
+      DATASET_UPLOAD_FOLDER: ${DATASET_UPLOAD_FOLDER}
+      
+      # 其他配置
+      WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED}
+    volumes:
+      - ${DATA_UPLOADS_DIR:-./data/uploads}:/app/uploads
+      - ${DATA_OUTPUTS_DIR:-./data/outputs}:/app/outputs
+      - ${DATA_LOGS_DIR:-./data/logs}:/app/logs
+    depends_on:
+      - mysql
+    networks:
+      - llm_eva_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  llm_eva_network:
+    driver: bridge 

@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for, jsonify # Added jsonify
 from flask_login import login_required, current_user # 添加用户认证相关导入
 from app import db # 数据库实例
-from app.models import SystemDataset, DatasetCategory # 数据模型
+from app.models import Dataset, DatasetCategory # 数据模型
 from app.forms import CustomDatasetForm # Import the new form
-from app.services.dataset_service import DatasetService # 导入数据集服务
+from app.services.dataset_service import DatasetService, get_available_benchmarks # 导入数据集服务
 import json # For parsing sample_data_json
 import os # For os.path.join
 from werkzeug.utils import secure_filename # For secure filenames
@@ -15,7 +15,7 @@ from sqlalchemy import or_, and_
 bp = Blueprint('datasets', __name__, url_prefix='/datasets')
 
 @bp.route('/system')
-def system_datasets_list():
+def datasets_list():
     """
     显示数据集列表，支持按分类筛选。
     权限控制：
@@ -29,27 +29,27 @@ def system_datasets_list():
     
     all_db_categories = DatasetCategory.query.order_by(DatasetCategory.name).all()
     
-    query = SystemDataset.query
+    query = Dataset.query
     
     # 如果不显示所有数据集，则只返回已激活的数据集
     if not show_all:
-        query = query.filter(SystemDataset.is_active == True)
+        query = query.filter(Dataset.is_active == True)
     
     # 权限过滤：只显示有权限查看的数据集
     if current_user and current_user.is_authenticated:
         query = query.filter(
             or_(
                 # 自己创建的所有数据集
-                SystemDataset.source == current_user.username,
+                Dataset.source == current_user.username,
                 # 别人创建的公开数据集
                 and_(
-                    SystemDataset.source != current_user.username,
-                    SystemDataset.visibility == '公开'
+                    Dataset.source != current_user.username,
+                    Dataset.visibility == '公开'
                 ),
                 # 系统数据集（source为空或为'系统'）
                 or_(
-                    SystemDataset.source.is_(None),
-                    SystemDataset.source == '系统'
+                    Dataset.source.is_(None),
+                    Dataset.source == '系统'
                 )
             )
         )
@@ -57,19 +57,19 @@ def system_datasets_list():
         # 未登录用户只能看到公开数据集和系统数据集
         query = query.filter(
             or_(
-                SystemDataset.visibility == '公开',
-                SystemDataset.source.is_(None),
-                SystemDataset.source == '系统'
+                Dataset.visibility == '公开',
+                Dataset.source.is_(None),
+                Dataset.source == '系统'
             )
         )
     
     if selected_category_name != '全部' and selected_category_name:
-        query = query.join(SystemDataset.categories).filter(DatasetCategory.name == selected_category_name)
+        query = query.join(Dataset.categories).filter(DatasetCategory.name == selected_category_name)
         
-    datasets_from_db = query.order_by(SystemDataset.name).all()
+    datasets_from_db = query.order_by(Dataset.name).all()
     
     return render_template(
-        'datasets/system_datasets.html', 
+        'datasets/datasets.html', 
         datasets=datasets_from_db, 
         all_categories=all_db_categories,
         selected_category=selected_category_name,
@@ -82,12 +82,15 @@ def add_custom_dataset():
     form = CustomDatasetForm()
     # Populate category choices dynamically
     form.categories.choices = [(cat.id, cat.name) for cat in DatasetCategory.query.order_by('name').all()]
+    
+    # 动态设置benchmark选项（排除general类型，因为会自动设置）
+    form.benchmark_name.choices = get_available_benchmarks(exclude_general=True)
 
     if form.validate_on_submit():
         try:
             # 检查数据集名称在当前用户内的唯一性
             dataset_name = form.name.data.strip()
-            existing_dataset = SystemDataset.query.filter_by(
+            existing_dataset = Dataset.query.filter_by(
                 name=dataset_name,
                 dataset_type='自建',
                 source=current_user.username
@@ -96,6 +99,19 @@ def add_custom_dataset():
             if existing_dataset:
                 flash(f'数据集名称 "{dataset_name}" 已存在，请使用其他名称。', 'error')
                 return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+            
+            # 根据format自动设置benchmark_name
+            selected_format = form.format.data
+            if selected_format == 'QA':
+                benchmark_name = 'general_qa'
+            elif selected_format == 'MCQ':
+                benchmark_name = 'general_mcq'
+            else:
+                # 对于其他自定义格式，使用用户选择的benchmark
+                benchmark_name = form.benchmark_name.data
+                if not benchmark_name:
+                    flash('自定义格式数据集必须选择Benchmark类型', 'error')
+                    return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
             
             # Process categories from selected IDs
             category_objects = []
@@ -127,12 +143,12 @@ def add_custom_dataset():
                     flash('选择题格式(MCQ)需要上传CSV文件', 'error')
                     return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
                 
-                if selected_format == 'FILL' and not file_ext == '.jsonl':
-                    flash('填空题格式(FILL)需要上传JSONL文件', 'error')
+                if selected_format == 'CUSTOM' and not file_ext == '.jsonl':
+                    flash('自定义格式需要上传JSONL文件', 'error')
                     return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
                 
                 if filename: # Ensure filename is not empty after secure_filename
-                    upload_folder = current_app.config.get('DATASET_UPLOAD_FOLDER', os.path.join(current_app.root_path, 'uploads'))
+                    upload_folder = current_app.config.get('DATA_UPLOADS_DIR', os.path.join(current_app.root_path, 'uploads'))
                     if not os.path.exists(upload_folder):
                         os.makedirs(upload_folder, exist_ok=True)
                     
@@ -145,17 +161,12 @@ def add_custom_dataset():
                     # 检查文件大小，避免处理过大的文件
                     file_size = os.path.getsize(file_path)
                     max_file_size = current_app.config.get('DATASET_MAX_FILE_SIZE', 50 * 1024 * 1024)
-                    large_file_threshold = current_app.config.get('DATASET_LARGE_FILE_THRESHOLD', 10 * 1024 * 1024)
                     
                     if file_size > max_file_size:
                         os.remove(file_path)  # 删除上传的文件
                         flash(f'文件过大 ({file_size / 1024 / 1024:.1f}MB)，请上传小于{max_file_size / 1024 / 1024:.0f}MB的文件', 'error')
                         return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
-                    
-                    # 对于大文件，使用更宽松的验证策略
-                    is_large_file = file_size > large_file_threshold
-                    current_app.logger.info(f"Processing dataset file: {new_filename}, size: {file_size / 1024 / 1024:.1f}MB, large_file: {is_large_file}")
-                    
+
                     # 验证文件内容格式
                     try:
                         if selected_format == 'QA':
@@ -256,8 +267,7 @@ def add_custom_dataset():
                                     }
                                 }
                         
-                        elif selected_format == 'FILL':
-                            # 验证填空题JSONL文件格式 - 优化：只验证前5行
+                        elif selected_format == 'CUSTOM':
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 line_count = 0
                                 validated_lines = 0
@@ -305,12 +315,6 @@ def add_custom_dataset():
                                         }
                                     }
                                 }
-                        
-                        # 给用户提示优化信息
-                        if is_large_file:
-                            flash(f'检测到大文件 ({file_size / 1024 / 1024:.1f}MB)，已使用快速验证模式（仅验证前5行）。', 'info')
-                        else:
-                            flash('文件验证完成（已验证前5行格式）。', 'success')
                             
                     except Exception as e:
                         flash(f'验证文件格式时出错: {str(e)}', 'error')
@@ -327,7 +331,7 @@ def add_custom_dataset():
             if not publish_date or publish_date.strip() == '':
                 publish_date = datetime.now().strftime('%Y-%m-%d')
             
-            new_dataset = SystemDataset(
+            new_dataset = Dataset(
                 name=form.name.data,
                 description=form.description.data,
                 publish_date=publish_date,
@@ -337,12 +341,13 @@ def add_custom_dataset():
                 dataset_type='自建',
                 visibility=form.visibility.data,
                 format=form.format.data,
+                benchmark_name=benchmark_name,
                 categories=category_objects
             )
             db.session.add(new_dataset)
             db.session.commit()
             flash(f'自定义数据集 " {new_dataset.name} " 已成功添加!', 'success')
-            return redirect(url_for('datasets.system_datasets_list'))
+            return redirect(url_for('datasets.datasets_list'))
         except ValueError as ve:
             current_app.logger.error(f"Error adding custom dataset: {ve}")
             flash(f'添加数据集失败: {ve}', 'error')
@@ -354,6 +359,8 @@ def add_custom_dataset():
     # For GET request or if form validation failed, re-render with choices populated
     if not form.categories.choices: # Ensure choices are set if validation failed and it's a POST
         form.categories.choices = [(cat.id, cat.name) for cat in DatasetCategory.query.order_by('name').all()]
+        # 重新设置benchmark选项
+        form.benchmark_name.choices = get_available_benchmarks(exclude_general=True)
         
     return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form) 
 
@@ -364,7 +371,7 @@ def list_dataset_data(dataset_id):
     权限控制：只允许访问有权限的数据集
     """
     # 获取数据集信息
-    dataset = SystemDataset.query.get_or_404(dataset_id)
+    dataset = Dataset.query.get_or_404(dataset_id)
     
     # 权限检查
     if current_user and current_user.is_authenticated:
@@ -408,6 +415,7 @@ def list_dataset_data(dataset_id):
     end_page = min(total_pages + 1, page + 3) if total_pages > 0 else 1
     page_range = list(range(start_page, end_page))
     
+    print(f'field_order: {list(data[0].keys()) if data else []}')
     return jsonify({
         'data': data,
         'field_order': list(data[0].keys()) if data else [],  # 添加字段顺序信息
@@ -428,7 +436,7 @@ def preview_dataset(dataset_id):
     使用异步加载方式获取数据集数据。
     """
     # 获取数据集信息
-    dataset = SystemDataset.query.get_or_404(dataset_id)
+    dataset = Dataset.query.get_or_404(dataset_id)
     
     # 权限检查
     if current_user and current_user.is_authenticated:
@@ -443,12 +451,12 @@ def preview_dataset(dataset_id):
         )
         if not has_permission:
             flash('您没有权限访问此数据集', 'error')
-            return redirect(url_for('datasets.system_datasets_list'))
+            return redirect(url_for('datasets.datasets_list'))
     else:
         # 未登录用户只能访问公开数据集和系统数据集
         if dataset.visibility != '公开' and dataset.source not in [None, '系统']:
             flash('您没有权限访问此数据集', 'error')
-            return redirect(url_for('datasets.system_datasets_list'))
+            return redirect(url_for('datasets.datasets_list'))
     
     # 获取筛选参数
     subset = request.args.get('subset', '')
@@ -490,7 +498,7 @@ def toggle_dataset_active(dataset_id):
     """
     API端点：切换数据集的启用/禁用状态
     """
-    dataset = SystemDataset.query.get_or_404(dataset_id)
+    dataset = Dataset.query.get_or_404(dataset_id)
     
     # 切换状态
     dataset.is_active = not dataset.is_active
@@ -518,7 +526,7 @@ def delete_dataset(dataset_id):
     API端点：删除自建数据集
     只允许用户删除自己创建的自建数据集
     """
-    dataset = SystemDataset.query.get_or_404(dataset_id)
+    dataset = Dataset.query.get_or_404(dataset_id)
     
     # 权限检查：只能删除自己创建的自建数据集
     if dataset.dataset_type != '自建':

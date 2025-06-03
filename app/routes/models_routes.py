@@ -25,7 +25,7 @@ def create_model():
             "display_name": form.display_name.data,
             "api_base_url": form.api_base_url.data,
             "model_identifier": form.model_identifier.data,
-            "api_key": form.api_key.data, # Will be encrypted by the service
+            "api_key": form.api_key.data,
             "provider_name": form.provider_name.data,
             "system_prompt": form.system_prompt.data,
             "default_temperature": form.default_temperature.data,

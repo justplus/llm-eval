@@ -66,7 +66,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">{{ dataset.name }}</h1>
-        <a href="{{ url_for('datasets.system_datasets_list') }}" class="btn btn-ghost btn-sm">
+        <a href="{{ url_for('datasets.datasets_list') }}" class="btn btn-ghost btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -126,12 +126,9 @@
             <!-- 数据表格容器 - QA格式 -->
             <div id="qa-data-container" class="overflow-x-auto data-table" style="display: none;">
                 <table class="table table-zebra w-full">
-                    <thead>
+                    <thead id="qa-table-header">
                         <tr>
-                            <th>#</th>
-                            <th>系统提示</th>
-                            <th>问题</th>
-                            <th>回答</th>
+                            <!-- QA格式表头将由JavaScript动态生成 -->
                         </tr>
                     </thead>
                     <tbody id="qa-table-body">
@@ -157,7 +154,7 @@
                 </table>
             </div>
             
-            <!-- 数据表格容器 - FILL格式 -->
+            <!-- 数据表格容器 - 自定义格式 -->
             <div id="fill-data-container" class="overflow-x-auto data-table" style="display: none;">
                 <table class="table table-zebra w-full">
                     <thead>
@@ -168,7 +165,7 @@
                         </tr>
                     </thead>
                     <tbody id="fill-table-body">
-                        <!-- FILL格式表格内容将由JavaScript动态生成 -->
+                        <!-- 自定义格式表格内容将由JavaScript动态生成 -->
                     </tbody>
                 </table>
             </div>
@@ -223,6 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const fillDataContainer = document.getElementById('fill-data-container');
     const noDataAlert = document.getElementById('no-data-alert');
     const paginationContainer = document.getElementById('pagination-container');
+    const qaTableHeader = document.getElementById('qa-table-header').querySelector('tr');
     const mcqTableHeader = document.getElementById('mcq-table-header').querySelector('tr');
     const qaTableBody = document.getElementById('qa-table-body');
     const mcqTableBody = document.getElementById('mcq-table-body');
@@ -260,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         displayQAData(data);
                     } else if (datasetFormat === 'MCQ') {
                         displayMCQData(data);
-                    } else if (datasetFormat === 'FILL') {
+                    } else if (datasetFormat === 'CUSTOM') {
                         displayFillData(data);
                     }
                     
@@ -290,6 +288,35 @@ document.addEventListener('DOMContentLoaded', function() {
         mcqDataContainer.style.display = 'none';
         fillDataContainer.style.display = 'none';
         
+        // 清空表头
+        qaTableHeader.innerHTML = '';
+        
+        // 如果有数据，根据服务器返回的字段顺序生成表头
+        if (data.data && data.data.length > 0 && data.field_order) {
+            const fields = data.field_order; // 使用服务器返回的字段顺序
+            
+            // 添加序号列
+            const indexTh = document.createElement('th');
+            indexTh.textContent = '#';
+            indexTh.className = 'w-16';
+            qaTableHeader.appendChild(indexTh);
+            
+            // 为每个字段添加表头
+            fields.forEach(field => {
+                const th = document.createElement('th');
+                th.textContent = field;
+                qaTableHeader.appendChild(th);
+            });
+        } else {
+            // 如果没有数据，显示默认表头
+            const defaultHeaders = ['#', '字段'];
+            defaultHeaders.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                qaTableHeader.appendChild(th);
+            });
+        }
+        
         // 清空表格内容
         qaTableBody.innerHTML = '';
         
@@ -302,10 +329,8 @@ document.addEventListener('DOMContentLoaded', function() {
             indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
             tr.appendChild(indexTd);
             
-            // 使用固定的字段顺序或服务器返回的字段顺序
-            const expectedFields = ['system', 'query', 'response'];
-            const fields = data.field_order || expectedFields;
-            
+            // 使用服务器返回的字段顺序添加数据列
+            const fields = data.field_order || Object.keys(item);
             fields.forEach(field => {
                 const td = document.createElement('td');
                 const value = item[field];
@@ -385,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 显示填空题(FILL)格式数据
+    // 显示自定义格式数据
     function displayFillData(data) {
         fillDataContainer.style.display = 'block';
         qaDataContainer.style.display = 'none';
@@ -402,10 +427,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const indexTd = document.createElement('td');
             indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
             tr.appendChild(indexTd);
-            
-            // 对于FILL格式，我们仍然使用特殊的处理逻辑来组合history和question
-            // 但也支持使用服务器返回的字段顺序
-            
             // 添加题目列 - 拼接history和question
             const questionTd = document.createElement('td');
             let displayText = '';

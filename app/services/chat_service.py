@@ -161,12 +161,10 @@ def call_openai_compatible_api(model_id: int, messages: list, system_prompt=None
 
     # 在函数早期（应用上下文有效时）捕获 logger 和 config 值
     app_logger = current_app.logger
-    default_model_api_key = current_app.config.get('DEFAULT_MODEL_API_KEY')
-    default_model_base_url = current_app.config.get('DEFAULT_MODEL_BASE_URL')
 
     # 在应用上下文中获取所有需要的数据
-    api_key = model_service.get_decrypted_api_key(model) or default_model_api_key
-    base_url = model.api_base_url or default_model_base_url
+    api_key = model_service.get_decrypted_api_key(model)
+    base_url = model.api_base_url
     
     # 保存所有模型相关数据，避免在生成器内部访问数据库
     model_info = {
@@ -225,12 +223,10 @@ def call_openai_compatible_api(model_id: int, messages: list, system_prompt=None
                 has_reasoning = False
                 
                 for chunk in response_stream:
-                    print(f"++++chunk: {chunk}")
                     # 检查是否有推理内容
                     if (hasattr(chunk, 'choices') and chunk.choices and 
                         hasattr(chunk.choices[0], 'delta') and chunk.choices[0].delta and
                         hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content):
-                        print(f"++++chunk.choices[0].delta.reasoning_content: {chunk.choices[0].delta.reasoning_content}")
                         reasoning_piece = chunk.choices[0].delta.reasoning_content
                         reasoning_content.append(reasoning_piece)
                         has_reasoning = True

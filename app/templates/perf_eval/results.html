@@ -214,24 +214,6 @@
         </div>
         {% endif %}
 
-        <!-- 原始输出（折叠显示） -->
-        {% if task.raw_output %}
-        <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-                <div class="collapse collapse-arrow">
-                    <input type="checkbox" /> 
-                    <div class="collapse-title text-xl font-medium">
-                        <i class="fas fa-code mr-2"></i>原始输出数据
-                    </div>
-                    <div class="collapse-content"> 
-                        <div class="mockup-code">
-                            <pre><code>{{- task.raw_output -}}</code></pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
     {% endif %}
 

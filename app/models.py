@@ -1,12 +1,10 @@
 from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone
 from sqlalchemy.dialects.mysql import LONGTEXT
 import json
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Table, Column, Integer, ForeignKey
 from app.utils import get_beijing_time
+from flask import current_app
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -16,19 +14,19 @@ def load_user(user_id):
         return User.query.get(int(user_id))
     except (ValueError, TypeError) as e:
         # 记录错误但不抛出异常，返回None让Flask-Login处理
-        print(f"Error loading user {user_id}: {e}")
+        current_app.logger.error(f"Error loading user {user_id}: {e}")
         return None
 
 class User(UserMixin, db.Model):
-    __tablename__ = 'users' # Explicit table name
+    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=get_beijing_time)
 
-    ai_models = db.relationship('AIModel', back_populates='owner', lazy='dynamic', cascade="all, delete-orphan")
+    model = db.relationship('AIModel', back_populates='owner', lazy='dynamic', cascade="all, delete-orphan")
     chat_sessions = db.relationship('ChatSession', back_populates='user', lazy='dynamic', cascade="all, delete-orphan")
-    model_evaluations = db.relationship('ModelEvaluation', back_populates='user', lazy='dynamic', cascade="all, delete-orphan")
+    evaluation_effectiveness = db.relationship('ModelEvaluation', back_populates='user', lazy='dynamic', cascade="all, delete-orphan")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -40,9 +38,9 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 class AIModel(db.Model):
-    __tablename__ = 'ai_models' # Explicit table name
+    __tablename__ = 'model'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # None for system models (owned by no specific user)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     
     display_name = db.Column(db.String(100), nullable=False)
     model_type = db.Column(db.String(50), nullable=False, default='openai_compatible') 
@@ -58,8 +56,8 @@ class AIModel(db.Model):
     created_at = db.Column(db.DateTime, default=get_beijing_time)
     updated_at = db.Column(db.DateTime, default=get_beijing_time, onupdate=get_beijing_time)
 
-    owner = db.relationship('User', back_populates='ai_models')
-    chat_messages = db.relationship('ChatMessage', back_populates='ai_model', lazy='dynamic')
+    owner = db.relationship('User', back_populates='model')
+    chat_messages = db.relationship('ChatMessage', back_populates='model', lazy='dynamic')
     evaluations = db.relationship('ModelEvaluation', foreign_keys='ModelEvaluation.model_id', back_populates='model', lazy='dynamic')
     judge_evaluations = db.relationship('ModelEvaluation', foreign_keys='ModelEvaluation.judge_model_id', back_populates='judge_model', lazy='dynamic')
 
@@ -67,9 +65,9 @@ class AIModel(db.Model):
         return f'<AIModel {self.display_name} ({self.model_identifier})>'
 
 class ChatSession(db.Model):
-    __tablename__ = 'chat_sessions' # Explicit table name
+    __tablename__ = 'chat_session'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     session_name = db.Column(db.String(150), nullable=True)
     created_at = db.Column(db.DateTime, default=get_beijing_time)
     updated_at = db.Column(db.DateTime, default=get_beijing_time, onupdate=get_beijing_time)
@@ -82,83 +80,84 @@ class ChatSession(db.Model):
         return f'<ChatSession {self.id} by User {self.user_id}>'
 
 class ChatMessage(db.Model):
-    __tablename__ = 'chat_messages' # Explicit table name
+    __tablename__ = 'chat_message'
     id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.Integer, db.ForeignKey('chat_sessions.id'), nullable=False)
-    model_id = db.Column(db.Integer, db.ForeignKey('ai_models.id'), nullable=True) 
+    session_id = db.Column(db.Integer, db.ForeignKey('chat_session.id'), nullable=False)
+    model_id = db.Column(db.Integer, db.ForeignKey('model.id'), nullable=True) 
     role = db.Column(db.String(20), nullable=False)  # 'user', 'assistant', 'system'
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=get_beijing_time)
     settings_snapshot = db.Column(db.JSON, nullable=True) 
 
     session = db.relationship('ChatSession', back_populates='messages')
-    ai_model = db.relationship('AIModel', back_populates='chat_messages')
+    model = db.relationship('AIModel', back_populates='chat_messages')
 
     def __repr__(self):
         return f'<ChatMessage {self.id} in Session {self.session_id} by {self.role}>' 
 
-# 用于 SystemDataset 和 DatasetCategory 的多对多关联表
-system_dataset_categories_association = db.Table('system_dataset_categories',
-    db.Column('system_dataset_id', db.Integer, db.ForeignKey('system_datasets.id'), primary_key=True),
-    db.Column('category_id', db.Integer, db.ForeignKey('dataset_categories.id'), primary_key=True)
+# 用于 Dataset 和 DatasetCategory 的多对多关联表
+dataset_categories_association = db.Table('dataset_category',
+    db.Column('dataset_id', db.Integer, db.ForeignKey('dataset.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('category.id'), primary_key=True)
 )
 
 class DatasetCategory(db.Model):
-    __tablename__ = 'dataset_categories'
+    __tablename__ = 'category'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True) # 分类名称
 
-    # 反向关系，方便从 Category 查找到所有相关的 SystemDataset
-    # datasets = db.relationship("SystemDataset", secondary=system_dataset_categories_association, back_populates="categories")
+    # 反向关系，方便从 Category 查找到所有相关的 Dataset
+    # datasets = db.relationship("Dataset", secondary=dataset_categories_association, back_populates="categories")
 
     def __repr__(self):
         return f'<DatasetCategory {self.name}>'
 
-class SystemDataset(db.Model):
-    __tablename__ = 'system_datasets'
+class Dataset(db.Model):
+    __tablename__ = 'dataset'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False, unique=True) # 数据集名称
-    description = db.Column(db.Text, nullable=True) # 描述
-    publish_date = db.Column(db.String(50), nullable=True) # 发布时间
-    source = db.Column(db.String(100), nullable=True) # 来源
-    download_url = db.Column(db.String(255), nullable=True) # 下载地址
-    dataset_info = db.Column(LONGTEXT, nullable=True) # 存储数据集结构信息，如子数据集、字段和分割情况
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+    publish_date = db.Column(db.String(50), nullable=True)
+    source = db.Column(db.String(100), nullable=True)
+    download_url = db.Column(db.String(255), nullable=True)
+    dataset_info = db.Column(LONGTEXT, nullable=True)
     
     # 新增字段
-    dataset_type = db.Column(db.String(50), nullable=False, default='系统', server_default='系统') # 数据集类型：系统, 自建
-    visibility = db.Column(db.String(50), nullable=False, default='公开', server_default='公开') # 可见性：公开, 不公开
-    format = db.Column(db.String(50), nullable=False, default='QA', server_default='QA') # 数据集格式：MCQ(选择题), QA(问答题)
-    is_active = db.Column(db.Boolean, nullable=False, default=True, server_default='1') # 是否启用，默认启用
+    dataset_type = db.Column(db.String(50), nullable=False, default='系统', server_default='系统')
+    visibility = db.Column(db.String(50), nullable=False, default='公开', server_default='公开')
+    format = db.Column(db.String(50), nullable=False, default='QA', server_default='QA')
+    benchmark_name = db.Column(db.String(100), nullable=False, default='general_qa', server_default='general_qa')  # 新增benchmark_name字段
+    is_active = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
     
     # 多对多关系到 DatasetCategory
     categories = db.relationship("DatasetCategory", 
-                                 secondary=system_dataset_categories_association,
-                                 backref=db.backref("datasets", lazy="dynamic"),
+                                 secondary=dataset_categories_association,
+                                 backref=db.backref("dataset", lazy="dynamic"),
                                  lazy="select") # 使用 select 加载模式，避免N+1查询，也可以用 'joined'
 
     # 评估关系
     evaluations = db.relationship('ModelEvaluationDataset', back_populates='dataset', lazy='dynamic')
 
     def __repr__(self):
-        return f'<SystemDataset {self.name}>'
+        return f'<Dataset {self.name}>'
 
 # 模型评估相关数据模型
 class ModelEvaluation(db.Model):
     """模型评估记录"""
-    __tablename__ = 'model_evaluations'
+    __tablename__ = 'evaluation_effectiveness'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    model_id = db.Column(db.Integer, db.ForeignKey('ai_models.id'), nullable=False)
-    judge_model_id = db.Column(db.Integer, db.ForeignKey('ai_models.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    model_id = db.Column(db.Integer, db.ForeignKey('model.id'), nullable=False)
+    judge_model_id = db.Column(db.Integer, db.ForeignKey('model.id'), nullable=True)
     name = db.Column(db.String(150), nullable=True)
     temperature = db.Column(db.Float, nullable=False, default=0.7)
     max_tokens = db.Column(db.Integer, nullable=False, default=2048)
-    status = db.Column(db.String(20), nullable=False, default='pending')  # pending, running, completed, failed
+    status = db.Column(db.String(20), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, default=get_beijing_time)
     completed_at = db.Column(db.DateTime, nullable=True)
-    result_summary = db.Column(db.JSON, nullable=True)  # 存储评估结果摘要
-    limit = db.Column(db.Integer, nullable=True)  # 限制评估数量
-    user = db.relationship('User', back_populates='model_evaluations')
+    result_summary = db.Column(db.JSON, nullable=True)
+    limit = db.Column(db.Integer, nullable=True)
+    user = db.relationship('User', back_populates='evaluation_effectiveness')
     model = db.relationship('AIModel', foreign_keys=[model_id], back_populates='evaluations')
     judge_model = db.relationship('AIModel', foreign_keys=[judge_model_id], back_populates='judge_evaluations')
     datasets = db.relationship('ModelEvaluationDataset', back_populates='evaluation', lazy='dynamic', cascade="all, delete-orphan")
@@ -169,24 +168,24 @@ class ModelEvaluation(db.Model):
 
 class ModelEvaluationDataset(db.Model):
     """模型评估中使用的数据集"""
-    __tablename__ = 'model_evaluation_datasets'
-    evaluation_id = db.Column(db.Integer, db.ForeignKey('model_evaluations.id'), primary_key=True)
-    dataset_id = db.Column(db.Integer, db.ForeignKey('system_datasets.id'), primary_key=True)
+    __tablename__ = 'evaluation_effectiveness_dataset'
+    evaluation_id = db.Column(db.Integer, db.ForeignKey('evaluation_effectiveness.id'), primary_key=True)
+    dataset_id = db.Column(db.Integer, db.ForeignKey('dataset.id'), primary_key=True)
     subset = db.Column(db.String(100), nullable=True)
     split = db.Column(db.String(100), nullable=True)
     
     evaluation = db.relationship('ModelEvaluation', back_populates='datasets')
-    dataset = db.relationship('SystemDataset', back_populates='evaluations')
+    dataset = db.relationship('Dataset', back_populates='evaluations')
     
     def __repr__(self):
         return f'<ModelEvaluationDataset {self.dataset_id} for Evaluation {self.evaluation_id}>'
 
 class ModelEvaluationResult(db.Model):
     """模型评估的详细结果"""
-    __tablename__ = 'model_evaluation_results'
+    __tablename__ = 'evaluation_effectiveness_result'
     id = db.Column(db.Integer, primary_key=True)
-    evaluation_id = db.Column(db.Integer, db.ForeignKey('model_evaluations.id'), nullable=False)
-    dataset_name = db.Column(db.String(255), nullable=False)
+    evaluation_id = db.Column(db.Integer, db.ForeignKey('evaluation_effectiveness.id'), nullable=False)
+    dataset_id = db.Column(db.Integer, db.ForeignKey('dataset.id'), nullable=False)  # 改为dataset_id并添加外键
     question = db.Column(db.Text, nullable=False)
     reference_answer = db.Column(db.Text, nullable=True)
     model_answer = db.Column(db.Text, nullable=False)
@@ -194,39 +193,40 @@ class ModelEvaluationResult(db.Model):
     feedback = db.Column(db.Text, nullable=True)
     
     evaluation = db.relationship('ModelEvaluation', back_populates='evaluation_results')
+    dataset = db.relationship('Dataset', backref=db.backref('evaluation_results', lazy='dynamic'))  # 添加与Dataset的关系
     
     def __repr__(self):
         return f'<ModelEvaluationResult {self.id} for Evaluation {self.evaluation_id}>' 
 
 # 新增：模型性能评估任务模型
 class PerformanceEvalTask(db.Model):
-    __tablename__ = 'performance_eval_tasks'
+    __tablename__ = 'model_efficiency'
     id = db.Column(db.Integer, primary_key=True)
     # 关联到用户，确保用户隔离
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     # 关联到AIModel，如果需要直接选择已注册的模型
-    # model_id = db.Column(db.Integer, db.ForeignKey('ai_models.id'), nullable=False) 
-    model_name = db.Column(db.String(150), nullable=False) # 或者直接存储模型名称字符串
-    dataset_name = db.Column(db.String(150), nullable=False) # 数据集名称
-    concurrency = db.Column(db.Integer, nullable=False) # 并发路数
-    num_requests = db.Column(db.Integer, nullable=False) # 请求数量
+    # model_id = db.Column(db.Integer, db.ForeignKey('model.id'), nullable=False) 
+    model_name = db.Column(db.String(150), nullable=False)
+    dataset_name = db.Column(db.String(150), nullable=False)
+    concurrency = db.Column(db.Integer, nullable=False)
+    num_requests = db.Column(db.Integer, nullable=False)
     
-    status = db.Column(db.String(50), nullable=False, default='pending') # 任务状态: pending, running, completed, failed
+    status = db.Column(db.String(50), nullable=False, default='pending')
     created_at = db.Column(db.DateTime, default=get_beijing_time)
-    started_at = db.Column(db.DateTime, nullable=True) # 任务开始时间
-    completed_at = db.Column(db.DateTime, nullable=True) # 任务完成时间
+    started_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
     
     # 存储 evalscope.perf.main.run_perf_benchmark 的输出
-    summary_results = db.Column(db.Text, nullable=True) # 存储汇总结果 (Benchmarking summary)
-    percentile_results = db.Column(db.Text, nullable=True) # 存储百分位指标 (Percentile results)
-    raw_output = db.Column(db.Text, nullable=True) # 存储原始的控制台输出，便于调试
-    error_message = db.Column(db.Text, nullable=True) # 如果评估失败，存储错误信息
+    summary_results = db.Column(db.Text, nullable=True)
+    percentile_results = db.Column(db.Text, nullable=True)
+    raw_output = db.Column(db.Text, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
 
     # 关联到用户
-    user = db.relationship('User', backref=db.backref('performance_eval_tasks', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('model_efficiency', lazy='dynamic'))
 
     # 如果模型是从 AIModel 表中选择的
-    # ai_model = db.relationship('AIModel', backref=db.backref('performance_eval_tasks', lazy='dynamic'))
+    # model = db.relationship('AIModel', backref=db.backref('model_efficiency', lazy='dynamic'))
 
     def __repr__(self):
         return f'<PerformanceEvalTask {self.id} for model {self.model_name} on dataset {self.dataset_name}>'
@@ -241,7 +241,7 @@ def init_database_data():
     try:
         # 检查是否已有数据集分类数据
         if DatasetCategory.query.count() == 0:
-            print("正在初始化数据集分类...")
+            current_app.logger.info("正在初始化数据集分类...")
             categories = [
                 (21, '函数调用'),
                 (9, '创作'),
@@ -263,14 +263,14 @@ def init_database_data():
             
             try:
                 db.session.commit()
-                print("数据集分类初始化完成")
+                current_app.logger.info("数据集分类初始化完成")
             except Exception as e:
                 db.session.rollback()
-                print(f"数据集分类初始化失败: {e}")
+                current_app.logger.error(f"数据集分类初始化失败: {e}")
         
         # 检查是否已有系统数据集数据
-        if SystemDataset.query.count() == 0:
-            print("正在初始化系统数据集...")
+        if Dataset.query.count() == 0:
+            current_app.logger.info("正在初始化系统数据集...")
             datasets = [
                 {
                     'id': 5,
@@ -283,7 +283,8 @@ def init_database_data():
                     'dataset_type': '系统',
                     'visibility': '公开',
                     'format': 'MCQ',
-                    'is_active': 1
+                    'is_active': 1,
+                    'benchmark_name': 'ceval'
                 },
                 {
                     'id': 29,
@@ -296,23 +297,24 @@ def init_database_data():
                     'dataset_type': '系统',
                     'visibility': '公开',
                     'format': 'MCQ',
-                    'is_active': 1
+                    'is_active': 1,
+                    'benchmark_name': 'iquiz'
                 },
             ]
             
             for dataset_data in datasets:
-                dataset = SystemDataset(**dataset_data)
+                dataset = Dataset(**dataset_data)
                 db.session.add(dataset)
             
             try:
                 db.session.commit()
-                print("系统数据集初始化完成")
+                current_app.logger.info("系统数据集初始化完成")
             except Exception as e:
                 db.session.rollback()
-                print(f"系统数据集初始化失败: {e}")
+                current_app.logger.error(f"系统数据集初始化失败: {e}")
         
-        print("数据库初始化检查完成")
+        current_app.logger.info("数据库初始化检查完成")
         
     except Exception as e:
-        print(f"数据库初始化过程中发生错误: {e}")
+        current_app.logger.error(f"数据库初始化过程中发生错误: {e}")
         # 不抛出异常，让应用继续启动 
