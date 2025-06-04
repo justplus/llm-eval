@@ -60,4 +60,9 @@
             </label>
         {% endif %}
     </div>
+{% endmacro %}
+
+{# 用于无Flask-WTF表单对象的POST表单添加CSRF令牌 #}
+{% macro render_csrf_token() %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 {% endmacro %} 

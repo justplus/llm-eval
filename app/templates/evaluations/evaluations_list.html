@@ -124,6 +124,8 @@
         <p class="py-4">您确定要删除评估 "<span id="delete-evaluation-name"></span>" 吗？此操作无法撤销。</p>
         <div class="modal-action">
             <form id="delete-form" method="POST" action="">
+                {% from "_form_helpers.html" import render_csrf_token %}
+                {{ render_csrf_token() }}
                 <button type="submit" class="btn btn-error">删除</button>
             </form>
             <label for="delete-modal" class="btn btn-outline">取消</label>

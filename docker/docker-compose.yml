@@ -16,7 +16,7 @@ services:
       MYSQL_CHARACTER_SET_SERVER: ${MYSQL_CHARACTER_SET_SERVER}
       MYSQL_COLLATION_SERVER: ${MYSQL_COLLATION_SERVER}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "${DB_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -49,7 +49,6 @@ services:
       # API配置
       SYSTEM_PROVIDER_BASE_URL: ${SYSTEM_PROVIDER_BASE_URL}
       SYSTEM_PROVIDER_API_KEY: ${SYSTEM_PROVIDER_API_KEY}
-      DATASET_UPLOAD_FOLDER: ${DATASET_UPLOAD_FOLDER}
       
       # 其他配置
       WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED}

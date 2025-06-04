@@ -145,6 +145,8 @@
                                     <form id="delete-form-{{ task.id }}" method="POST" 
                                           action="{{ url_for('perf_eval.delete_task', task_id=task.id, page=page) }}" 
                                           style="display:none;">
+                                        {% from "_form_helpers.html" import render_csrf_token %}
+                                        {{ render_csrf_token() }}
                                     </form>
                                 </div>
                             </td>

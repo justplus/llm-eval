@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-md mx-auto">
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body text-center">
+                <!-- 错误图标 -->
+                <div class="mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                </div>
+                
+                <h2 class="card-title text-2xl mb-4 justify-center text-warning">{{ title }}</h2>
+                
+                <p class="text-base-content/70 mb-6">{{ error_message }}</p>
+                
+                <div class="alert alert-info mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <h3 class="font-bold">什么是CSRF保护？</h3>
+                        <div class="text-sm mt-2">
+                            <p>CSRF（跨站请求伪造）保护是一种安全机制，防止恶意网站代表您向我们的系统提交请求。</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <h3 class="font-bold">常见原因：</h3>
+                        <ul class="text-sm mt-2 list-disc list-inside text-left">
+                            <li>表单页面打开时间过长</li>
+                            <li>浏览器页面在后台停留过久</li>
+                            <li>网络连接中断后重新提交</li>
+                            <li>多个标签页同时操作</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card-actions justify-center space-x-4">
+                    <button onclick="history.back()" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        返回重试
+                    </button>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-outline">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                        返回首页
+                    </a>
+                </div>
+                
+                <div class="mt-6 text-xs text-base-content/50">
+                    <p>💡 提示：如果问题持续存在，请尝试刷新页面或清除浏览器缓存</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

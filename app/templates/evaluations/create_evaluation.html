@@ -21,6 +21,8 @@
     </div>
 
     <form method="POST" action="{{ url_for('evaluations.create_evaluation') }}">
+        {% from "_form_helpers.html" import render_csrf_token %}
+        {{ render_csrf_token() }}
         <div class="card bg-base-100 shadow-xl mb-6">
             <div class="card-body">
                 <h2 class="card-title">

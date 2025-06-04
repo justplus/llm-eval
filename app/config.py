@@ -17,8 +17,8 @@ def get_database_uri():
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-default-fallback-secret-key'
     
-    # 禁用CSRF保护，因为部署在内部网络环境
-    WTF_CSRF_ENABLED = False
+    # 启用CSRF保护，保障应用安全
+    WTF_CSRF_ENABLED = True
     
     # 动态构建数据库连接URL
     SQLALCHEMY_DATABASE_URI = get_database_uri()
@@ -27,7 +27,7 @@ class Config:
     SYSTEM_PROVIDER_API_KEY = os.environ.get('SYSTEM_PROVIDER_API_KEY')
     SYSTEM_PROVIDER_BASE_URL = os.environ.get('SYSTEM_PROVIDER_BASE_URL')
     # 文件上传配置
-    DATASET_UPLOAD_FOLDER = os.environ.get('DATASET_UPLOAD_FOLDER')
+    DATA_UPLOADS_DIR = os.environ.get('DATA_UPLOADS_DIR')
     
     # 文件大小限制配置
     DATASET_MAX_FILE_SIZE = int(os.environ.get('DATASET_MAX_FILE_SIZE', 50 * 1024 * 1024))  # 50MB

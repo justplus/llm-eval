@@ -59,6 +59,7 @@
                     </td>
                     <td class="text-center space-x-1">
                         <form action="{{ url_for('models.validate_model', model_id=model.id) }}" method="POST" class="inline-block">
+                            {{ forms.render_csrf_token() }}
                             <button type="submit" class="btn btn-xs btn-outline btn-info tooltip" data-tip="验证模型连通性">
                                 <i class="fas fa-plug"></i> 验证
                             </button>
@@ -73,6 +74,7 @@
                                 </button>
                             </form>
                             <form action="{{ url_for('models.delete_model', model_id=model.id) }}" method="POST" class="inline-block delete-model-form">
+                                {{ forms.render_csrf_token() }}
                                 <button type="button" class="btn btn-xs btn-outline btn-error tooltip" data-tip="删除模型" 
                                         onclick="showConfirmationModal(this.closest('form'), '确认删除模型', '您确定要删除模型 <strong>{{ model.display_name | e }}</strong> 吗？此操作无法撤销。', '确认删除', 'btn-error');">
                                     <i class="fas fa-trash"></i> 删除
@@ -86,6 +88,7 @@
                                 </button>
                             </form>
                              <form method="POST" class="inline-block">
+                                {{ forms.render_csrf_token() }}
                                 <button type="submit" class="btn btn-xs btn-disabled tooltip" data-tip="系统模型无法删除" disabled>
                                     <i class="fas fa-trash"></i> 删除
                                 </button>

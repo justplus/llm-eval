@@ -144,3 +144,5 @@ migrations/
 
 data/
 .DS_Store
+.flashenv
+.env

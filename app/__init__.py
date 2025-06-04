@@ -2,6 +2,7 @@ from flask import Flask, g, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFProtect
 from .config import config
 import datetime
 import logging  # 添加logging模块导入
@@ -17,6 +18,9 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = "请登录以访问此页面。"
 login_manager.login_message_category = "info"
+
+# 初始化CSRF保护
+csrf = CSRFProtect()
 
 def create_app(config_name=None):
     """创建Flask应用实例
@@ -38,6 +42,7 @@ def create_app(config_name=None):
     app.logger.info(f"🔧 使用配置: {config_name}")
     app.logger.info(f"🐛 调试模式: {'开启' if app.config.get('DEBUG') else '关闭'}")
     app.logger.info(f"📄 模板自动重载: {'开启' if app.config.get('TEMPLATES_AUTO_RELOAD') else '关闭'}")
+    app.logger.info(f"🔒 CSRF保护: {'开启' if app.config.get('WTF_CSRF_ENABLED') else '关闭'}")
     
     # 会话配置
     app.config['SESSION_COOKIE_SECURE'] = False  # 开发环境设为False，生产环境应设为True
@@ -118,6 +123,7 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    csrf.init_app(app)
     
     # 添加自定义Jinja2过滤器
     @app.template_filter('from_json')
@@ -212,14 +218,21 @@ def create_app(config_name=None):
     @app.errorhandler(400)
     def bad_request_error(error):
         app.logger.warning(f"400 Bad Request: {error}")
-        # 清除可能损坏的会话数据
-        from flask import session
-        session.clear()
-        flash("请求无效，可能是会话过期导致的。", "warning")
-        return render_template('errors/session_error.html', 
-                             title='会话错误',
-                             error_message="请求无效，可能是会话过期导致的。",
-                             clear_session_url=url_for('auth.clear_session')), 400
+        # 检查是否是CSRF错误
+        if hasattr(error, 'description') and 'CSRF' in str(error.description):
+            flash("表单已过期，请重新提交。", "warning")
+            return render_template('errors/csrf_error.html', 
+                                 title='表单过期',
+                                 error_message="表单令牌已过期，请重新提交表单。"), 400
+        else:
+            # 清除可能损坏的会话数据
+            from flask import session
+            session.clear()
+            flash("请求无效，可能是会话过期导致的。", "warning")
+            return render_template('errors/session_error.html', 
+                                 title='会话错误',
+                                 error_message="请求无效，可能是会话过期导致的。",
+                                 clear_session_url=url_for('auth.clear_session')), 400
 
     @app.errorhandler(403)
     def forbidden_error(error):

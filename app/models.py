@@ -300,6 +300,20 @@ def init_database_data():
                     'is_active': 1,
                     'benchmark_name': 'iquiz'
                 },
+                {
+                    'id': 35,
+                    'name': 'chinese_simpleqa',
+                    'description': '中文 SimpleQA 是第一个用于评估语言模型回答简短问题的事实性能力的全面中文基准测试。该基准主要具备五个特性（即中文、多样性、高质量、静态性和易评估性',
+                    'publish_date': '2025-06-01',
+                    'source': '公开数据集',
+                    'download_url': 'AI-ModelScope/Chinese-SimpleQA',
+                    'dataset_info': json.dumps({"default": {"features": {"id": {"_type": "Value"}, "primary_category": {"_type": "Value"}, "secondary_category": {"_type": "Value"}, "question": {"_type": "Value"}, "answer": {"_type": "Value"}, "urls": {"_type": "Value"}}, "splits": {"train": {"name": "train", "dataset_name": "Chinese-SimpleQA"}}}}),
+                    'dataset_type': '系统',
+                    'visibility': '公开',
+                    'format': 'QA',
+                    'is_active': 1,
+                    'benchmark_name': 'iquiz'
+                },
             ]
             
             for dataset_data in datasets:

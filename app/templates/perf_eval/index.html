@@ -97,6 +97,8 @@
                     <td class="space-x-2">
                         <a href="{{ url_for('perf_eval.results', task_id=task.id) }}" class="btn btn-sm btn-outline btn-info">查看结果</a>
                         <form method="POST" action="{{ url_for('perf_eval.delete_task', task_id=task.id) }}" style="display:inline;" onsubmit="return confirm('确定要删除这个评估任务吗？');">
+                            {% from "_form_helpers.html" import render_csrf_token %}
+                            {{ render_csrf_token() }}
                             <button type="submit" class="btn btn-sm btn-outline btn-error">删除</button>
                         </form>
                     </td>

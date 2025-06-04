@@ -265,6 +265,8 @@
         <p class="py-4">您确定要删除评估 "{{ evaluation.name }}" 吗？此操作无法撤销。</p>
         <div class="modal-action">
             <form method="POST" action="{{ url_for('evaluations.delete_evaluation', evaluation_id=evaluation.id) }}">
+                {% from "_form_helpers.html" import render_csrf_token %}
+                {{ render_csrf_token() }}
                 <button type="submit" class="btn btn-error">删除</button>
             </form>
             <label for="delete-modal" class="btn btn-outline">取消</label>

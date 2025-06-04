@@ -35,6 +35,8 @@
                     <div class="card-actions justify-end mt-4">
                         <a href="{{ url_for('chat.view_chat_session', session_id=session.id) }}" class="btn btn-sm btn-outline btn-primary"><i class="fas fa-eye mr-1"></i> 查看</a>
                         <form action="{{ url_for('chat.delete_session_route', session_id=session.id) }}" method="POST" class="inline-block delete-session-form">
+                            {% from "_form_helpers.html" import render_csrf_token %}
+                            {{ render_csrf_token() }}
                             <button type="button" class="btn btn-sm btn-outline btn-error" 
                                     data-session-display-name="{{ (session.session_name if session.session_name else ('对话 ' ~ session.id)) | e }}"
                                     onclick="const sessionName = this.dataset.sessionDisplayName; const message = `您确定要删除对话 <strong>${sessionName}</strong> 吗？此操作无法撤销。`; showConfirmationModal(this.closest('form'), '确认删除对话', message, '确认删除', 'btn-error');">
