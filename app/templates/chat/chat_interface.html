@@ -841,7 +841,12 @@ document.addEventListener('DOMContentLoaded', function () {
         scrollToBottom();
 
         const requestBody = { message: messageContent, models: activeModelConfigs };
-        const headers = { 'Content-Type': 'application/json' , 'Accept': 'text/event-stream' };
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'X-CSRFToken': csrfToken
+        };
         
         try {
             const response = await fetch(`/chat/session/${sessionId}/send`, {

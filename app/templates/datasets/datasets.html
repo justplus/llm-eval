@@ -295,12 +295,16 @@ forceDeleteModal.addEventListener('click', function(event) {
 
 // 切换数据集启用/禁用状态
 function toggleDatasetActive(datasetId, isActive) {
+    // 获取CSRF令牌
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
     // 使用fetch API发送POST请求
     fetch(`/datasets/${datasetId}/toggle_active`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({ is_active: !isActive })
     })
@@ -454,11 +458,15 @@ function deleteDataset(datasetId, force = false) {
     
     const requestBody = force ? { force: true } : {};
     
+    // 获取CSRF令牌
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
     fetch(`/datasets/${datasetId}/delete`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify(requestBody)
     })

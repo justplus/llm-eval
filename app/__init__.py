@@ -12,6 +12,13 @@ from app.adapter.custom_intent_adapter import register_genera_intent_benchmark
 from app.adapter.custom_intent_dataset_plugin import CustomIntentDatasetPlugin
 from logging.handlers import RotatingFileHandler
 
+# 修复Flask-Login的redirect导入问题
+import flask_login.utils
+if not hasattr(flask_login.utils, 'redirect'):
+    flask_login.utils.redirect = redirect
+if not hasattr(flask_login.utils, 'url_for'):
+    flask_login.utils.url_for = url_for
+
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()

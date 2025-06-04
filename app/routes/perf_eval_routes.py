@@ -42,6 +42,8 @@ def create():
             )
         ).all()
     ]
+    # 添加openqa数据集，内置
+    available_datasets.append((-1, 'openqa'))
 
     form.model_name.choices = user_models
     form.dataset_name.choices = available_datasets

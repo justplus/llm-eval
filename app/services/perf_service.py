@@ -13,6 +13,7 @@ import re
 from typing import Tuple, Dict, List, Any, Optional
 from evalscope.perf.utils.db_util import PercentileMetrics
 from evalscope.perf.utils.benchmark_util import Metrics
+import logging
 
 # evalscope导入
 from evalscope.perf.main import run_perf_benchmark
@@ -37,9 +38,6 @@ class PerformanceEvaluationService:
         # 这是一个非常基础的解析，实际应用中需要更复杂的逻辑
         # 例如使用正则表达式或者更结构化的日志输出
         lines = output_str.split('\n')
-        
-        summary_section = False
-        percentile_section = False
         
         summary_data = {}
         current_percentiles = []
@@ -133,11 +131,14 @@ class PerformanceEvaluationService:
             task_cfg: 评估任务配置
             output_file_path: 存储结果的临时文件路径
         """
+        # 获取一个标准的logger实例，用于在此独立进程中记录日志
+        process_logger = logging.getLogger(f"perf_eval_process.{task_id}")
+
         def timeout_handler(signum, frame):
             raise TimeoutError("性能评估任务执行超时")
         
         try:
-            current_app.logger.info(f"开始执行性能评估任务 {task_id}, 配置: {task_cfg}")
+            process_logger.info(f"开始执行性能评估任务 {task_id}, 配置: {task_cfg}")
             
             # 设置总任务超时时间（15分钟）
             signal.signal(signal.SIGALRM, timeout_handler)
@@ -152,18 +153,18 @@ class PerformanceEvaluationService:
             signal.alarm(0)
             
             elapsed_time = time.time() - start_time
-            current_app.logger.info(f"性能评估任务 {task_id} 执行耗时: {elapsed_time:.2f}秒")
+            process_logger.info(f"性能评估任务 {task_id} 执行耗时: {elapsed_time:.2f}秒")
             
             # 将结果序列化到文件
             with open(output_file_path, 'wb') as f:
                 pickle.dump(result_tuple, f)
                 
-            current_app.logger.info(f"性能评估任务 {task_id} 已完成，结果已保存到 {output_file_path}")
+            process_logger.info(f"性能评估任务 {task_id} 已完成，结果已保存到 {output_file_path}")
             
         except TimeoutError:
             signal.alarm(0)
             error_msg = f"性能评估任务 {task_id} 执行超时（15分钟），可能是模型服务不可用"
-            current_app.logger.error(error_msg)
+            process_logger.error(error_msg)
             with open(output_file_path, 'wb') as f:
                 pickle.dump(("ERROR", error_msg), f)
                 
@@ -177,8 +178,8 @@ class PerformanceEvaluationService:
             else:
                 error_msg = f"性能评估任务 {task_id} 执行失败: {str(e)}"
                 
-            current_app.logger.error(error_msg)
-            current_app.logger.error(traceback.format_exc())
+            process_logger.error(error_msg)
+            process_logger.error(traceback.format_exc())
             
             # 将错误信息写入输出文件
             with open(output_file_path, 'wb') as f:
@@ -411,7 +412,7 @@ class PerformanceEvaluationService:
                 return None
                 
             dataset = Dataset.query.get(dataset_id)
-            if not dataset:
+            if dataset_id != '-1' and not dataset:
                 current_app.logger.error(f"数据集ID {dataset_id} 不存在")
                 return None
             
@@ -425,7 +426,7 @@ class PerformanceEvaluationService:
             task = PerformanceEvalTask(
                 user_id=user_id,                    # 设置用户ID
                 model_name=model.model_identifier,  # 存储模型标识符
-                dataset_name=dataset.name,          # 存储数据集名称
+                dataset_name='openqa' if dataset_id == '-1' else dataset.name,          # 存储数据集名称
                 concurrency=concurrency,
                 num_requests=num_requests,
                 status='pending',
@@ -462,12 +463,17 @@ class PerformanceEvaluationService:
             if not selected_model:
                 current_app.logger.error(f"找不到模型ID为 {model_id} 的模型")
                 return
-                
-            # 根据数据集名称查找数据集
-            selected_dataset = Dataset.query.get(dataset_id)
-            if not selected_dataset:
-                current_app.logger.error(f"找不到数据集ID为 {dataset_id} 的数据集")
-                return
+            dataset = None
+            selected_dataset = None
+            if dataset_id == '-1':
+                dataset = 'openqa'
+            else:
+                # 根据数据集名称查找数据集
+                selected_dataset = Dataset.query.get(dataset_id)
+                if not selected_dataset:
+                    current_app.logger.error(f"找不到数据集ID为 {dataset_id} 的数据集")
+                    return
+                dataset = selected_dataset.benchmark_name
 
             # 构建evalscope配置
             task_cfg = {
@@ -476,10 +482,11 @@ class PerformanceEvaluationService:
                 "model": selected_model.model_identifier,
                 "number": num_requests,
                 "api": 'openai',
-                "dataset": selected_dataset.benchmark_name,
-                "dataset_path": selected_dataset.download_url,  # 使用数据集的下载地址
+                "dataset": dataset,
                 "stream": True
             }
+            if dataset != 'openqa':
+                task_cfg['dataset_path'] = selected_dataset.download_url
             
             # 创建临时文件存储结果
             output_file_path = tempfile.mktemp(suffix=f"_perf_eval_{task_id}.pkl")

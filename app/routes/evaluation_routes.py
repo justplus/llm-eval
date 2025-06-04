@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, abort, make_response
 from flask_login import login_required, current_user
 from app import db
-from app.models import AIModel, Dataset, ModelEvaluation, ModelEvaluationResult, ModelEvaluationDataset
+from app.models import AIModel, Dataset, ModelEvaluationResult, ModelEvaluationDataset
 from app.services.evaluation_service import EvaluationService
 import json
 from math import ceil # 用于分页计算
@@ -39,7 +39,7 @@ def create_evaluation():
     if request.method == 'GET':
         # 获取用户可用的自定义模型列表 (被评估模型)
         # 移除is_validated限制，允许用户评估自己的所有自定义模型
-        custom_models = AIModel.query.filter_by(is_system_model=False).all()
+        custom_models = AIModel.query.filter_by(is_system_model=False, user_id=current_user.id).order_by(AIModel.display_name.asc()).all()
         
         # 调试信息
         current_app.logger.info(f"用户 {current_user.username} 的自定义模型数量: {len(custom_models)}")
@@ -47,10 +47,11 @@ def create_evaluation():
             current_app.logger.info(f"模型: {model.display_name}, 验证状态: {model.is_validated}")
         
         # 获取系统内置模型列表 (裁判模型)
-        system_models = AIModel.query.filter_by(is_system_model=True).all()
+        system_models = AIModel.query.filter_by(is_system_model=True).order_by(AIModel.display_name.asc()).all()
         current_app.logger.info(f"系统模型数量: {len(system_models)}")
 
-        all_models = AIModel.query.all()
+        all_models = system_models
+        all_models.extend(custom_models)
         
         # 获取已启用的数据集列表 - 修复权限问题
         # 1. 自己创建的所有数据集（无论是否公开）

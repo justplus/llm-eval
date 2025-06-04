@@ -10,6 +10,8 @@ from evalscope.utils.io_utils import jsonl_to_list
 # 动态创建DataAdapter类  
 class GeneralIntentAdapter(DataAdapter): 
     def __init__(self, **kwargs):
+        # 不使用裁判模型
+        self.llm_as_a_judge = False
         super().__init__(**kwargs)
 
     def load(self, dataset_name_or_path: str = None, subset_list: list = None, **kwargs) -> dict:

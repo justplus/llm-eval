@@ -547,19 +547,32 @@ def delete_dataset(dataset_id):
     try:
         # 检查是否有评估记录引用此数据集
         evaluation_records = dataset.evaluations.all()
-        if evaluation_records and not force_delete:
+        # 检查是否有评估结果记录引用此数据集
+        evaluation_result_records = dataset.evaluation_results.all()
+        
+        total_dependencies = len(evaluation_records) + len(evaluation_result_records)
+        
+        if (evaluation_records or evaluation_result_records) and not force_delete:
             return jsonify({
                 'success': False,
-                'message': f'无法删除数据集 "{dataset.name}"，因为有 {len(evaluation_records)} 个评估记录正在使用此数据集。',
+                'message': f'无法删除数据集 "{dataset.name}"，因为有 {total_dependencies} 个相关记录正在使用此数据集。',
                 'has_dependencies': True,
-                'dependency_count': len(evaluation_records)
+                'dependency_count': total_dependencies
             }), 400
         
-        # 如果强制删除，先删除相关的评估数据集记录
-        if evaluation_records and force_delete:
-            for eval_dataset_record in evaluation_records:
-                db.session.delete(eval_dataset_record)
-            current_app.logger.info(f"已删除 {len(evaluation_records)} 个相关的评估数据集记录")
+        # 如果强制删除，先删除相关的记录
+        if force_delete:
+            # 删除相关的评估结果记录
+            if evaluation_result_records:
+                for result_record in evaluation_result_records:
+                    db.session.delete(result_record)
+                current_app.logger.info(f"已删除 {len(evaluation_result_records)} 个相关的评估结果记录")
+            
+            # 删除相关的评估数据集记录
+            if evaluation_records:
+                for eval_dataset_record in evaluation_records:
+                    db.session.delete(eval_dataset_record)
+                current_app.logger.info(f"已删除 {len(evaluation_records)} 个相关的评估数据集记录")
         
         # 删除关联的文件
         if dataset.download_url and os.path.exists(dataset.download_url):
