@@ -240,7 +240,9 @@ class EvaluationService:
                         'generation_config': {
                             # 'stream': True,
                             'timeout': 12000,
-                            'temperature': evaluation.temperature
+                            'temperature': evaluation.temperature or '0.7',
+                            'top_k': 20,
+                            'top_p': 0.8
                         }
                     }
                 

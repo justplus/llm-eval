@@ -115,6 +115,11 @@ def send_message(session_id):
         if not has_access:
             return jsonify({"error": f"您无权访问模型 (ID: {model_id})。"}), 403
 
+    # 保存模型配置到会话
+    save_success = chat_service.save_session_model_configs(session_id, model_configs)
+    if not save_success:
+        current_app.logger.warning(f"保存会话 {session_id} 模型配置失败，但继续处理消息")
+
     # 1. 保存用户消息
     user_chat_message = chat_service.add_message_to_session(session_id, model_id=None, role='user', content=user_message_content)
     if not user_chat_message:
@@ -386,4 +391,58 @@ def save_session_model_configs(session_id):
     if success:
         return jsonify({"message": "模型配置已保存"}), 200
     else:
-        return jsonify({"error": "保存模型配置失败"}), 500 
+        return jsonify({"error": "保存模型配置失败"}), 500
+
+@bp.route('/session/<int:session_id>/get_configs', methods=['GET'])
+@login_required 
+def get_session_model_configs(session_id):
+    """获取会话的模型配置"""
+    session = chat_service.get_chat_session_by_id(session_id, current_user.id)
+    if not session:
+        return jsonify({"error": "会话未找到。"}), 404
+    
+    # 获取保存的配置
+    saved_configs = chat_service.get_session_model_configs(session_id) or []
+    
+    return jsonify({"model_configs": saved_configs}), 200
+
+@bp.route('/new_with_config', methods=['POST'])
+@login_required
+def new_chat_session_with_config():
+    """创建新的对话会话并保存模型配置"""
+    data = request.json
+    model_configs = data.get('model_configs', [])
+    
+    if not model_configs:
+        return jsonify({"error": "未提供有效的模型配置。"}), 400
+    
+    # 验证所有模型的访问权限
+    for config in model_configs:
+        model_id = config.get('id')
+        if not model_id:
+            return jsonify({"error": "每个模型配置必须包含id。"}), 400
+            
+        target_model = AIModel.query.get(model_id)
+        if not target_model:
+            return jsonify({"error": f"所选模型 (ID: {model_id}) 不存在。"}), 404
+        
+        # 验证模型访问权限
+        has_access = target_model.is_system_model or target_model.user_id == current_user.id
+        if not has_access:
+            return jsonify({"error": f"您无权访问模型 (ID: {model_id})。"}), 403
+    
+    # 创建新会话
+    session = chat_service.create_chat_session(current_user.id)
+    if not session:
+        return jsonify({"error": "创建新对话会话失败。"}), 500
+    
+    # 保存模型配置到新会话
+    save_success = chat_service.save_session_model_configs(session.id, model_configs)
+    if not save_success:
+        current_app.logger.warning(f"保存新会话 {session.id} 模型配置失败")
+        # 不返回错误，因为会话已创建成功
+    
+    return jsonify({
+        "message": "新对话已创建",
+        "session_id": session.id
+    }), 200 

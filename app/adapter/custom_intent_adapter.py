@@ -51,7 +51,7 @@ class GeneralIntentAdapter(DataAdapter):
             for h in history:
                 for k, v in h.items():
                     history_prompt += f'{k}: {v}\n'
-            user_prompt = f"用户的对话内容如下：\n{history_prompt}\nuser: {user_prompt}\n可以使用的工具及其参数为：\n"
+            user_prompt = f"用户的对话内容如下：\n{history_prompt}user: {user_prompt}\n可以使用的工具及其参数为：\n"
         return self.gen_prompt_data(system_prompt=system_prompt, prompt=user_prompt)  
       
     def get_gold_answer(self, input_d: dict) -> str:  

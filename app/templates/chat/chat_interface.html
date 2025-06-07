@@ -115,9 +115,14 @@
             {# Header for title and drawer toggle button #}
             <div class="p-4 border-b border-base-300 flex justify-between items-center">
                 <h1 class="text-xl font-semibold">{{ title }}</h1>
-                <label for="model-config-drawer-toggle" class="btn btn-primary btn-sm drawer-button">
-                    <i class="fas fa-cogs mr-1"></i> 模型配置
-                </label>
+                <div class="flex items-center space-x-2">
+                    <button id="new-chat-with-config-btn" class="btn btn-success btn-sm">
+                        <i class="fas fa-plus mr-1"></i> 新对话
+                    </button>
+                    <label for="model-config-drawer-toggle" class="btn btn-primary btn-sm drawer-button">
+                        <i class="fas fa-cogs mr-1"></i> 模型配置
+                    </label>
+                </div>
             </div>
 
             {# Chat messages container #}
@@ -133,7 +138,7 @@
                             {{ message.role | capitalize }}
                             <time class="text-xs opacity-50 ml-1">{{ message.timestamp.strftime('%H:%M') }}</time>
                             {% if message.role == 'assistant' and message.model_id %}
-                                <span class="text-xs opacity-60 ml-1"> ({{ message.ai_model.display_name }})</span>
+                                <span class="text-xs opacity-60 ml-1"> ({{ message.model.display_name }})</span>
                             {% endif %}
                         </div>
                         <div class="chat-bubble {% if message.role == 'user' %}chat-bubble-primary{% elif message.role == 'assistant' %}chat-bubble-accent{% else %}chat-bubble-info{% endif %}">
@@ -212,7 +217,7 @@
                                 <span class="label-text">Temperature</span>
                                 <span class="temperature-value-display text-sm">0.7</span>
                             </label>
-                            <input type="range" min="0" max="2" step="0.1" value="0.7" class="temperature-slider range range-xs range-primary" />
+                            <input type="range" min="0" max="1" step="0.1" value="0.7" class="temperature-slider range range-xs range-primary" />
                         </div>
                     </div>
                 </div>
@@ -541,27 +546,97 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
+    // 从服务器动态加载保存的配置
+    async function loadSavedConfigsFromServer() {
+        try {
+            const response = await fetch(`/chat/session/${sessionId}/get_configs`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+                console.log('服务器获取配置失败或配置不存在');
+                return false;
+            }
+            
+            const data = await response.json();
+            const savedConfigs = data.model_configs;
+            
+            if (!savedConfigs || !Array.isArray(savedConfigs) || savedConfigs.length === 0) {
+                console.log('服务器返回空配置');
+                return false;
+            }
+            
+            // 清除现有的面板
+            modelPanelsContainer.innerHTML = '';
+            
+            // 为每个保存的配置创建面板
+            savedConfigs.forEach((config, index) => {
+                const panelId = Date.now() + index;
+                const panelHTML = createModelPanelHTML(panelId);
+                modelPanelsContainer.insertAdjacentHTML('beforeend', panelHTML);
+                
+                const panel = modelPanelsContainer.querySelector(`[data-panel-id="${panelId}"]`);
+                
+                // 初始化面板事件
+                initPanelEventListeners(panel);
+                
+                // 设置模型选择器
+                const selector = panel.querySelector('.model-selector');
+                for (let i = 0; i < selector.options.length; i++) {
+                    if (parseInt(selector.options[i].value) === config.id) {
+                        selector.selectedIndex = i;
+                        break;
+                    }
+                }
+                
+                // 设置系统提示和温度
+                const promptInput = panel.querySelector('.system-prompt-input');
+                const tempSlider = panel.querySelector('.temperature-slider');
+                const tempDisplay = panel.querySelector('.temperature-value-display');
+                
+                if (config.system_prompt) {
+                    promptInput.value = config.system_prompt;
+                }
+                
+                if (config.temperature !== undefined) {
+                    tempSlider.value = config.temperature;
+                    tempDisplay.textContent = config.temperature;
+                }
+            });
+            
+            updateAddModelBtnState();
+            console.log('已从服务器动态加载保存的模型配置');
+            return true;
+        } catch (error) {
+            console.error('动态加载服务器配置时出错:', error);
+            return false;
+        }
+    }
+
     // 初始化函数 - 统一处理配置加载
-    function initializeModelPanels() {
+    async function initializeModelPanels() {
         let configLoaded = false;
         
-        // 1. 首先尝试从服务器加载配置
-        if (hasSavedConfigs) {
+        // 1. 首先尝试从服务器动态加载配置
+        configLoaded = await loadSavedConfigsFromServer();
+        if (configLoaded) {
+            console.log('已成功从服务器动态加载配置');
+        } else {
+            // 2. 如果动态加载失败，尝试从模板渲染的数据加载
             configLoaded = loadSavedConfigs();
             if (configLoaded) {
-                console.log('已成功从服务器加载配置');
+                console.log('已成功从模板数据加载配置');
+            } else {
+                // 3. 如果模板数据也没有，尝试从本地存储加载
+                configLoaded = loadSavedConfigFromLocalStorage();
+                if (configLoaded) {
+                    console.log('已成功从本地存储加载配置');
+                }
             }
         }
         
-        // 2. 如果服务器没有配置，尝试从本地存储加载
-        if (!configLoaded) {
-            configLoaded = loadSavedConfigFromLocalStorage();
-            if (configLoaded) {
-                console.log('已成功从本地存储加载配置');
-            }
-        }
-        
-        // 3. 如果两种方式都没有配置，创建默认面板
+        // 4. 如果所有方式都没有配置，创建默认面板
         if (!configLoaded) {
             console.log('没有找到已保存的配置，创建默认面板');
             // 检查是否已有默认面板
@@ -575,15 +650,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
         
-        // 4. 设置配置变更监听器
+        // 5. 设置配置变更监听器
         setupConfigChangeListeners();
         
-        // 5. 更新按钮状态
+        // 6. 更新按钮状态
         updateAddModelBtnState();
     }
     
     // 执行初始化
-    initializeModelPanels();
+    (async () => {
+        await initializeModelPanels();
+    })();
 
     // 创建新的模型面板的HTML
     function createModelPanelHTML(panelId) {
@@ -621,7 +698,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="label-text">Temperature</span>
                         <span class="temperature-value-display text-sm">0.7</span>
                     </label>
-                    <input type="range" min="0" max="2" step="0.1" value="0.7" class="temperature-slider range range-xs range-primary" />
+                    <input type="range" min="0" max="1" step="0.1" value="0.7" class="temperature-slider range range-xs range-primary" />
                 </div>
             </div>
         </div>
@@ -670,6 +747,69 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 为添加模型按钮绑定事件
     addModelBtn.addEventListener('click', addNewModelPanel);
+
+    // 新对话按钮事件处理
+    const newChatWithConfigBtn = document.getElementById('new-chat-with-config-btn');
+    newChatWithConfigBtn.addEventListener('click', async function() {
+        try {
+            // 获取当前的模型配置
+            const currentConfigs = [];
+            const panelElements = modelPanelsContainer.querySelectorAll('.model-config-panel');
+            
+            panelElements.forEach(panel => {
+                const modelSelector = panel.querySelector('.model-selector');
+                const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                if (selectedOption && selectedOption.value && selectedOption.value !== '请选择一个模型...') {
+                    const systemPrompt = panel.querySelector('.system-prompt-input').value;
+                    const temperature = parseFloat(panel.querySelector('.temperature-slider').value);
+                    
+                    currentConfigs.push({
+                        id: parseInt(selectedOption.value),
+                        name: selectedOption.text.replace(/ \((系统|自定义)\)/, ''),
+                        system_prompt: systemPrompt,
+                        temperature: temperature
+                    });
+                }
+            });
+            
+            if (currentConfigs.length === 0) {
+                window.showDaisyUIAlert('提示', '请先配置至少一个模型后再开启新对话');
+                return;
+            }
+            
+            // 禁用按钮并显示加载状态
+            newChatWithConfigBtn.disabled = true;
+            newChatWithConfigBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> 创建中...';
+            
+            // 创建新会话并保存配置
+            const response = await fetch('/chat/new_with_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    model_configs: currentConfigs
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                // 跳转到新的会话页面
+                window.location.href = `/chat/session/${data.session_id}`;
+            } else {
+                const errorData = await response.json();
+                window.showDaisyUIAlert('错误', errorData.error || '创建新对话失败');
+            }
+        } catch (error) {
+            console.error('创建新对话时出错:', error);
+            window.showDaisyUIAlert('错误', '创建新对话时发生错误');
+        } finally {
+            // 恢复按钮状态
+            newChatWithConfigBtn.disabled = false;
+            newChatWithConfigBtn.innerHTML = '<i class="fas fa-plus mr-1"></i> 新对话';
+        }
+    });
 
     // 初始化面板事件监听器
     function initPanelEventListeners(panelElement) {

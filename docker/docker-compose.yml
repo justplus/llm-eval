@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   mysql:
@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:SXwx2scw3UWP}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-SXwx2scw3UWP}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
@@ -40,16 +40,16 @@ services:
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_NAME: ${MYSQL_DATABASE}
-      
+
       # Flask配置
       FLASK_APP: ${FLASK_APP}
       FLASK_ENV: ${FLASK_ENV}
       SECRET_KEY: ${SECRET_KEY}
-      
+
       # API配置
       SYSTEM_PROVIDER_BASE_URL: ${SYSTEM_PROVIDER_BASE_URL}
       SYSTEM_PROVIDER_API_KEY: ${SYSTEM_PROVIDER_API_KEY}
-      
+
       # 其他配置
       WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED}
     volumes:
@@ -67,4 +67,4 @@ volumes:
 
 networks:
   llm_eva_network:
-    driver: bridge 
+    driver: bridge
