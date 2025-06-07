@@ -17,8 +17,7 @@ FROM base as deps-stage
 
 # 复制requirements.txt并安装Python依赖（单独一层，利用缓存）
 COPY requirements.txt .
-RUN pip install -r requirements.txt -i https://depend.iflytek.com/artifactory/api/pypi/pypi-repo/simple
-
+RUN pip install -r requirements.txt
 # 最终阶段
 FROM deps-stage as final
 
