@@ -497,6 +497,13 @@ python run.py --debug
 ### RAG数据集
 RAG评估时支持两种jsonl格式的数据集，一种是包含了通过各种策略召回的上下文片段及大模型最终的回答，一种是不包含二者，仅有用户问题和参考答案。
 如果你已有完备的RAG系统，一般会开放接口可以获取到上下文片段和最终答案，此时可以选择后者配合jinja2即可。
+数据集字段解释：
+- user_input: 一般是规整后的完整问题
+- retrieved_contexts: RAG系统通过向量+重排等策略召回的上下文片段
+- response: RAG系统对问题的回答
+- reference: 参考答案，来源于标注
+
+RAG评估使用的是ragas框架，评估指标参考:[Ragas指标](https://docs.ragas.io/en/latest/concepts/metrics/available_metrics/)
 
 jinja2要求实现get_context和get_response两个宏，内置了http.request函数以及fromjson、tojson过滤器。你可以参考：
 
