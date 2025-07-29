@@ -84,7 +84,6 @@ let refreshCount = parseInt(localStorage.getItem('refreshCount') || '0');
 if (refreshCount < 3) {
     localStorage.setItem('refreshCount', (refreshCount + 1).toString());
     setTimeout(() => {
-        console.log('尝试自动刷新...');
         window.location.href = '{{ clear_session_url }}';
     }, 3000);
 } else {

@@ -170,6 +170,24 @@
                 </table>
             </div>
             
+            <!-- 数据表格容器 - RAG格式 -->
+            <div id="rag-data-container" class="overflow-x-auto data-table" style="display: none;">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>用户输入</th>
+                            <th>检索上下文</th>
+                            <th>回答</th>
+                            <th>标准答案</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rag-table-body">
+                        <!-- RAG格式表格内容将由JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
             <!-- 无数据提示 -->
             <div id="no-data-alert" class="alert alert-warning" style="display: none;">
                 <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -218,6 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const qaDataContainer = document.getElementById('qa-data-container');
     const mcqDataContainer = document.getElementById('mcq-data-container');
     const fillDataContainer = document.getElementById('fill-data-container');
+    const ragDataContainer = document.getElementById('rag-data-container');
     const noDataAlert = document.getElementById('no-data-alert');
     const paginationContainer = document.getElementById('pagination-container');
     const qaTableHeader = document.getElementById('qa-table-header').querySelector('tr');
@@ -225,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const qaTableBody = document.getElementById('qa-table-body');
     const mcqTableBody = document.getElementById('mcq-table-body');
     const fillTableBody = document.getElementById('fill-table-body');
+    const ragTableBody = document.getElementById('rag-table-body');
     const paginationLinks = document.getElementById('pagination-links');
     const totalCountSpan = document.getElementById('total-count');
     
@@ -235,6 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
         qaDataContainer.style.display = 'none';
         mcqDataContainer.style.display = 'none';
         fillDataContainer.style.display = 'none';
+        ragDataContainer.style.display = 'none';
         noDataAlert.style.display = 'none';
         paginationContainer.style.display = 'none';
         
@@ -260,6 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         displayMCQData(data);
                     } else if (datasetFormat === 'CUSTOM') {
                         displayFillData(data);
+                    } else if (datasetFormat === 'RAG') {
+                        displayRAGData(data);
                     }
                     
                     // 更新分页
@@ -287,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
         qaDataContainer.style.display = 'block';
         mcqDataContainer.style.display = 'none';
         fillDataContainer.style.display = 'none';
+        ragDataContainer.style.display = 'none';
         
         // 清空表头
         qaTableHeader.innerHTML = '';
@@ -348,6 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mcqDataContainer.style.display = 'block';
         qaDataContainer.style.display = 'none';
         fillDataContainer.style.display = 'none';
+        ragDataContainer.style.display = 'none';
         
         // 清空表头
         mcqTableHeader.innerHTML = '';
@@ -415,6 +440,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fillDataContainer.style.display = 'block';
         qaDataContainer.style.display = 'none';
         mcqDataContainer.style.display = 'none';
+        ragDataContainer.style.display = 'none';
         
         // 清空表格内容
         fillTableBody.innerHTML = '';
@@ -461,6 +487,65 @@ document.addEventListener('DOMContentLoaded', function() {
             tr.appendChild(answerTd);
             
             fillTableBody.appendChild(tr);
+        });
+    }
+
+    // 显示RAG格式数据
+    function displayRAGData(data) {
+        ragDataContainer.style.display = 'block';
+        qaDataContainer.style.display = 'none';
+        mcqDataContainer.style.display = 'none';
+        fillDataContainer.style.display = 'none';
+        
+        // 清空表格内容
+        ragTableBody.innerHTML = '';
+        
+        // 添加数据行
+        data.data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            // 添加序号列
+            const indexTd = document.createElement('td');
+            indexTd.textContent = (data.pagination.page - 1) * data.pagination.per_page + index + 1;
+            tr.appendChild(indexTd);
+            
+            // 添加用户输入列
+            const userInputTd = document.createElement('td');
+            userInputTd.textContent = item.user_input || '-';
+            userInputTd.title = item.user_input || '-';
+            tr.appendChild(userInputTd);
+            
+            // 添加检索上下文列
+            const contextsTd = document.createElement('td');
+            if (item.retrieved_contexts && Array.isArray(item.retrieved_contexts) && item.retrieved_contexts.length > 0) {
+                const contextsList = document.createElement('ol');
+                contextsList.className = 'list-decimal list-inside';
+                item.retrieved_contexts.forEach(context => {
+                    const li = document.createElement('li');
+                    li.textContent = context;
+                    li.className = 'mb-1';
+                    contextsList.appendChild(li);
+                });
+                contextsTd.appendChild(contextsList);
+            } else {
+                contextsTd.textContent = '-';
+            }
+            tr.appendChild(contextsTd);
+            
+            // 添加回答列
+            const responseTd = document.createElement('td');
+            responseTd.textContent = item.response || '-';
+            responseTd.title = item.response || '-';
+            tr.appendChild(responseTd);
+            
+            // 添加标准答案列
+            const referenceTd = document.createElement('td');
+            referenceTd.textContent = item.reference || '-';
+            referenceTd.className = 'font-bold text-success';
+            referenceTd.title = item.reference || '-';
+            tr.appendChild(referenceTd);
+            
+            ragTableBody.appendChild(tr);
         });
     }
     

@@ -333,17 +333,12 @@ let currentDatasetName = null;
 function clearCurrentDataset() {
     currentDatasetId = null;
     currentDatasetName = null;
-    console.log('Cleared current dataset variables');
 }
 
 // 删除数据集确认
 function confirmDeleteDataset(button) {
     currentDatasetId = button.dataset.datasetId;
     currentDatasetName = button.dataset.datasetName;
-    
-    // 调试信息
-    console.log('Dataset ID:', currentDatasetId);
-    console.log('Dataset Name:', currentDatasetName);
     
     // 验证数据
     if (!currentDatasetId || currentDatasetId === 'undefined') {
@@ -369,9 +364,7 @@ function closeDeleteModal() {
 // 执行删除
 function executeDelete() {
     const datasetId = currentDatasetId; // 保存ID
-    console.log('executeDelete: currentDatasetId =', currentDatasetId);
-    console.log('executeDelete: datasetId =', datasetId);
-    
+
     document.getElementById('deleteConfirmModal').classList.remove('modal-open');
     // 注意：不要在这里清空全局变量，因为可能需要强制删除
     // 只有在删除成功或用户取消时才清空
@@ -389,9 +382,7 @@ function closeForceDeleteModal() {
 // 执行强制删除
 function executeForceDelete() {
     const datasetId = currentDatasetId; // 保存ID
-    console.log('executeForceDelete: currentDatasetId =', currentDatasetId);
-    console.log('executeForceDelete: datasetId =', datasetId);
-    
+
     document.getElementById('forceDeleteModal').classList.remove('modal-open');
     // 执行强制删除
     deleteDataset(datasetId, true);
@@ -454,8 +445,7 @@ function deleteDataset(datasetId, force = false) {
         return;
     }
     
-    console.log('Deleting dataset with ID:', datasetId, 'Force:', force);
-    
+
     const requestBody = force ? { force: true } : {};
     
     // 获取CSRF令牌
@@ -471,8 +461,6 @@ function deleteDataset(datasetId, force = false) {
         body: JSON.stringify(requestBody)
     })
     .then(response => {
-        console.log('Delete response status:', response.status);
-        
         // 无论状态码如何，都尝试解析JSON响应
         return response.json().then(data => ({
             status: response.status,
@@ -482,7 +470,6 @@ function deleteDataset(datasetId, force = false) {
     })
     .then(result => {
         const { status, ok, data } = result;
-        console.log('Response result:', result);
         
         if (data.success) {
             // 删除成功，清空全局变量

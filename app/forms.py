@@ -31,18 +31,18 @@ class AIModelForm(FlaskForm):
 class CustomDatasetForm(FlaskForm):
     name = StringField('数据集名称', validators=[DataRequired(), Length(max=200)])
     description = TextAreaField('描述', validators=[Optional(), Length(max=5000)])
-    categories = SelectMultipleField('评估方法', 
+    categories = SelectMultipleField('数据集类别', 
                                    validators=[Optional()], 
                                    widget=ListWidget(prefix_label=False),
                                    option_widget=CheckboxInput())
     publish_date = StringField('发布时间', validators=[Optional(), Length(max=50)])
     format = SelectField('数据集格式', 
-                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)'), ('CUSTOM', '自定义格式 (CUSTOM)')], 
+                        choices=[('QA', '问答题格式 (QA)'), ('MCQ', '选择题格式 (MCQ)'), ('RAG', 'RAG格式 (RAG)'), ('CUSTOM', '自定义格式 (CUSTOM)')], 
                         validators=[DataRequired()],
                         default='QA')
     dataset_file = FileField('数据集文件上传', 
                              validators=[DataRequired(), FileAllowed(['csv', 'jsonl'], '仅允许上传 CSV 或 JSONL 文件!')],
-                             description='选择题格式(MCQ)请上传CSV文件；问答题格式(QA)和自定义格式(CUSTOM)请上传JSONL文件')
+                             description='选择题格式(MCQ)请上传CSV文件；问答题格式(QA)、自定义格式(CUSTOM)和RAG格式请上传JSONL文件')
     sample_data_json = TextAreaField('数据集结构信息 (JSON格式)', 
                                    validators=[Optional()],
                                    description='请粘贴JSON格式的数据集结构信息，例如：{"子集名称": {"features": {"字段1": {"_type": "Value"}}}}')
@@ -54,6 +54,38 @@ class CustomDatasetForm(FlaskForm):
                              validators=[DataRequired()],
                              default='公开')
     submit = SubmitField('保存数据集')
+
+class RAGEvaluationForm(FlaskForm):
+    name = StringField('评估名称', validators=[Optional(), Length(max=150)])
+    
+    # 裁判模型配置
+    judge_model_id = SelectField('裁判模型', validators=[DataRequired()], coerce=int)
+    judge_temperature = FloatField('Temperature', validators=[DataRequired(), NumberRange(min=0.0, max=2.0)], default=0.7)
+    judge_max_tokens = IntegerField('最大Token数', validators=[DataRequired(), NumberRange(min=1, max=8192)], default=2048)
+    judge_top_k = IntegerField('Top K', validators=[Optional(), NumberRange(min=1, max=100)], default=20)
+    judge_top_p = FloatField('Top P', validators=[Optional(), NumberRange(min=0.0, max=1.0)], default=0.8)
+    
+    # 嵌入模型配置
+    embedding_model_id = SelectField('嵌入模型', validators=[DataRequired()], coerce=int)
+    embedding_dimension = IntegerField('嵌入维度', validators=[DataRequired(), NumberRange(min=1, max=4096)], default=1536)
+    
+    # 评估指标选择
+    evaluation_metrics = SelectMultipleField('评估指标', 
+                                           choices=[
+                                               ('Faithfulness', '忠实性 (Faithfulness)'),
+                                               ('AnswerRelevancy', '答案相关性 (Answer Relevancy)'),
+                                               ('ContextPrecision', '上下文精确性 (Context Precision)'),
+                                               ('AnswerCorrectness', '答案正确性 (Answer Correctness)'),
+                                               ('ContextRecall', '上下文召回率 (Context Recall)')
+                                           ],
+                                           validators=[DataRequired()],
+                                           widget=ListWidget(prefix_label=False),
+                                           option_widget=CheckboxInput())
+    
+    # 数据集选择
+    dataset_id = SelectField('选择数据集', validators=[DataRequired()], coerce=int)
+    
+    submit = SubmitField('开始RAG评估')
 
 class PerformanceEvalForm(FlaskForm):
     # 模型选择，表单字段名为model_name但实际返回模型ID

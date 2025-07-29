@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}API接口示例 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="prose max-w-none mb-6">
+        <h1>API接口示例</h1>
+        <p>本页面展示如何使用RAG API接口进行检索和生成。</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 检索接口测试 -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-search mr-2"></i>检索接口测试
+                </h2>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">查询</span>
+                    </label>
+                    <input type="text" id="retrieve-query" placeholder="输入查询内容..." class="input input-bordered w-full" />
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">最大结果数</span>
+                    </label>
+                    <input type="number" id="retrieve-max-results" value="3" min="1" max="10" class="input input-bordered w-full" />
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">数据集ID (可选)</span>
+                    </label>
+                    <input type="number" id="retrieve-dataset-id" placeholder="输入数据集ID..." class="input input-bordered w-full" />
+                </div>
+                <div class="card-actions justify-end mt-4">
+                    <button id="retrieve-btn" class="btn btn-primary">
+                        <i class="fas fa-search mr-2"></i>检索
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <label class="label">
+                        <span class="label-text">检索结果</span>
+                    </label>
+                    <div id="retrieve-result" class="bg-base-200 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        <p class="text-center text-base-content/50">点击检索按钮查看结果</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 生成接口测试 -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-robot mr-2"></i>生成接口测试
+                </h2>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">查询</span>
+                    </label>
+                    <input type="text" id="generate-query" placeholder="输入查询内容..." class="input input-bordered w-full" />
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">上下文 (每行一个)</span>
+                    </label>
+                    <textarea id="generate-context" class="textarea textarea-bordered h-24" placeholder="输入上下文，每行一个..."></textarea>
+                </div>
+                <div class="card-actions justify-end mt-4">
+                    <button id="generate-btn" class="btn btn-primary">
+                        <i class="fas fa-robot mr-2"></i>生成
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <label class="label">
+                        <span class="label-text">生成结果</span>
+                    </label>
+                    <div id="generate-result" class="bg-base-200 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        <p class="text-center text-base-content/50">点击生成按钮查看结果</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAG一体化接口测试 -->
+    <div class="card bg-base-100 shadow-xl mt-6">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i class="fas fa-cogs mr-2"></i>RAG一体化接口测试
+            </h2>
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">查询</span>
+                </label>
+                <input type="text" id="rag-query" placeholder="输入查询内容..." class="input input-bordered w-full" />
+            </div>
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">数据集ID (可选)</span>
+                </label>
+                <input type="number" id="rag-dataset-id" placeholder="输入数据集ID..." class="input input-bordered w-full" />
+            </div>
+            <div class="card-actions justify-end mt-4">
+                <button id="rag-btn" class="btn btn-primary">
+                    <i class="fas fa-cogs mr-2"></i>执行RAG
+                </button>
+            </div>
+            <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">
+                        <span class="label-text">检索到的上下文</span>
+                    </label>
+                    <div id="rag-contexts" class="bg-base-200 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        <p class="text-center text-base-content/50">点击执行RAG按钮查看结果</p>
+                    </div>
+                </div>
+                <div>
+                    <label class="label">
+                        <span class="label-text">生成的回答</span>
+                    </label>
+                    <div id="rag-response" class="bg-base-200 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        <p class="text-center text-base-content/50">点击执行RAG按钮查看结果</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jinja2模板示例 -->
+    <div class="card bg-base-100 shadow-xl mt-6">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i class="fas fa-code mr-2"></i>Jinja2模板示例
+            </h2>
+            <div class="bg-base-200 rounded-lg p-4 overflow-x-auto">
+                <pre class="text-sm"><code>{% raw %}{% macro get_context(user_input) %}
+    {# 发送GET请求到检索API并获取上下文 #}
+    {% set url = "http://localhost:5000/api/retrieve?query=" + user_input|urlencode %}
+    {% set raw_response = http_request(url) %}
+    
+    {# 尝试解析JSON响应 #}
+    {% set response_json = raw_response|tojson|fromjson %}
+    
+    {# 提取结果列表 #}
+    {% if response_json and response_json.success and response_json.results %}
+        {{ response_json.results|tojson }}
+    {% else %}
+        []
+    {% endif %}
+{% endmacro %}
+
+{% macro get_response(user_input, context) %}
+    {# 发送POST请求到生成API获取回答 #}
+    {% set url = "http://localhost:5000/api/generate" %}
+    {% set headers = {"Content-Type": "application/json"} %}
+    {% set data = {
+        "query": user_input,
+        "context": context
+    } %}
+    
+    {% set raw_response = http_request(url, method='POST', headers=headers, data=data) %}
+    
+    {# 尝试解析JSON响应 #}
+    {% set response_json = raw_response|tojson|fromjson %}
+    
+    {# 提取生成的文本 #}
+    {% if response_json and response_json.success and response_json.generated_text %}
+        {{ response_json.generated_text }}
+    {% else %}
+        {{ raw_response }}
+    {% endif %}
+{% endmacro %}{% endraw %}</code></pre>
+            </div>
+            <p class="text-sm mt-2">
+                上面的Jinja2模板示例展示了如何在RAG数据集的模板中使用API接口获取检索上下文和生成回答。
+                将此模板复制到RAG数据集的Jinja2模板字段中，即可在数据集处理时自动调用API接口。
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 检索接口测试
+    document.getElementById('retrieve-btn').addEventListener('click', function() {
+        const query = document.getElementById('retrieve-query').value;
+        const maxResults = document.getElementById('retrieve-max-results').value;
+        const datasetId = document.getElementById('retrieve-dataset-id').value;
+        
+        if (!query) {
+            alert('请输入查询内容');
+            return;
+        }
+        
+        // 构建URL
+        let url = `/api/retrieve?query=${encodeURIComponent(query)}&max_results=${maxResults}`;
+        if (datasetId) {
+            url += `&dataset_id=${datasetId}`;
+        }
+        
+        // 显示加载状态
+        const resultDiv = document.getElementById('retrieve-result');
+        resultDiv.innerHTML = `<div class="flex justify-center items-center py-8">
+            <span class="loading loading-spinner loading-lg"></span>
+            <span class="ml-2">加载中...</span>
+        </div>`;
+        
+        // 发送请求
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let html = `<div class="space-y-2">`;
+                    data.results.forEach((result, index) => {
+                        html += `<div class="p-2 border border-base-300 rounded">
+                            <div class="text-sm font-semibold">上下文 ${index + 1}</div>
+                            <p class="whitespace-pre-wrap">${result}</p>
+                        </div>`;
+                    });
+                    html += `</div>`;
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>${data.error || '检索失败'}</span>
+                    </div>`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>请求失败: ${error.message}</span>
+                </div>`;
+            });
+    });
+    
+    // 生成接口测试
+    document.getElementById('generate-btn').addEventListener('click', function() {
+        const query = document.getElementById('generate-query').value;
+        const contextText = document.getElementById('generate-context').value;
+        
+        if (!query) {
+            alert('请输入查询内容');
+            return;
+        }
+        
+        // 解析上下文
+        const context = contextText.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        
+        // 显示加载状态
+        const resultDiv = document.getElementById('generate-result');
+        resultDiv.innerHTML = `<div class="flex justify-center items-center py-8">
+            <span class="loading loading-spinner loading-lg"></span>
+            <span class="ml-2">加载中...</span>
+        </div>`;
+        
+        // 发送请求
+        fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: query,
+                context: context
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `<p class="whitespace-pre-wrap">${data.generated_text}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>${data.error || '生成失败'}</span>
+                    </div>`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>请求失败: ${error.message}</span>
+                </div>`;
+            });
+    });
+    
+    // RAG一体化接口测试
+    document.getElementById('rag-btn').addEventListener('click', function() {
+        const query = document.getElementById('rag-query').value;
+        const datasetId = document.getElementById('rag-dataset-id').value;
+        
+        if (!query) {
+            alert('请输入查询内容');
+            return;
+        }
+        
+        // 显示加载状态
+        const contextsDiv = document.getElementById('rag-contexts');
+        const responseDiv = document.getElementById('rag-response');
+        contextsDiv.innerHTML = `<div class="flex justify-center items-center py-8">
+            <span class="loading loading-spinner loading-lg"></span>
+            <span class="ml-2">加载中...</span>
+        </div>`;
+        responseDiv.innerHTML = `<div class="flex justify-center items-center py-8">
+            <span class="loading loading-spinner loading-lg"></span>
+            <span class="ml-2">加载中...</span>
+        </div>`;
+        
+        // 发送请求
+        fetch('/api/rag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: query,
+                dataset_id: datasetId || undefined
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 显示上下文
+                    let contextsHtml = `<div class="space-y-2">`;
+                    data.retrieved_contexts.forEach((context, index) => {
+                        contextsHtml += `<div class="p-2 border border-base-300 rounded">
+                            <div class="text-sm font-semibold">上下文 ${index + 1}</div>
+                            <p class="whitespace-pre-wrap">${context}</p>
+                        </div>`;
+                    });
+                    contextsHtml += `</div>`;
+                    contextsDiv.innerHTML = contextsHtml;
+                    
+                    // 显示回答
+                    responseDiv.innerHTML = `<p class="whitespace-pre-wrap">${data.response}</p>`;
+                } else {
+                    contextsDiv.innerHTML = `<div class="alert alert-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>${data.error || '检索失败'}</span>
+                    </div>`;
+                    responseDiv.innerHTML = `<div class="alert alert-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>${data.error || '生成失败'}</span>
+                    </div>`;
+                }
+            })
+            .catch(error => {
+                contextsDiv.innerHTML = `<div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>请求失败: ${error.message}</span>
+                </div>`;
+                responseDiv.innerHTML = `<div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>请求失败: ${error.message}</span>
+                </div>`;
+            });
+    });
+});
+</script>
+{% endblock %}

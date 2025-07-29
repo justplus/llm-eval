@@ -2,6 +2,16 @@
 
 {% block title %}仪表盘 - {{ super() }}{% endblock %}
 
+{% block head_extra %}
+<style>
+    /* 为dashboard页面的btn-sm按钮设置自定义左右内边距 */
+    .btn.btn-sm {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <!-- 页面标题和描述 -->
@@ -15,7 +25,7 @@
         </p>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <!-- 模型管理卡片 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
             <figure class="px-10 pt-10">
@@ -23,9 +33,8 @@
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">模型管理</h2>
-                <p>管理您的AI模型，无论是公有云还是本地部署</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('models.list_models') }}" class="btn btn-primary"><i class="fas fa-cog mr-1"></i> 前往管理</a>
+                    <a href="{{ url_for('models.list_models') }}" class="btn btn-primary btn-sm"><i class="fas fa-cog mr-1"></i> 前往管理</a>
                     {# Placeholder: {{ url_for('models_bp.list_models') }} #}
                 </div>
             </div>
@@ -34,14 +43,13 @@
         <!-- 开始对话卡片 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
             <figure class="px-10 pt-10">
-                <i class="fas fa-comments text-5xl text-info"></i>
+                <i class="fas fa-comments text-5xl text-primary"></i>
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">开始对话</h2>
-                <p>让多个模型上竞技场PK，看看谁更厉害</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-info"><i class="fas fa-comments mr-1"></i> 进入对话</a>
-                    <a href="{{ url_for('chat.chat_history_list') }}" class="btn btn-info"><i class="fas fa-eye mr-1"></i> 查看历史</a>
+                    <a href="{{ url_for('chat.new_chat_session') }}" class="btn btn-primary btn-sm"><i class="fas fa-comments mr-1"></i> 进入对话</a>
+                    <a href="{{ url_for('chat.chat_history_list') }}" class="btn btn-primary btn-sm"><i class="fas fa-eye mr-1"></i> 查看历史</a>
                 </div>
             </div>
         </div>
@@ -49,13 +57,12 @@
         <!-- 测试集管理 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
              <figure class="px-10 pt-10">
-                <i class="fas fa-vials text-5xl text-secondary"></i>
+                <i class="fas fa-vials text-5xl text-primary"></i>
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">测试集管理</h2>
-                <p>共享你的测试集给团队，效率up up up</p>
                 <div class="card-actions">
-                     <a href="{{ url_for('datasets.datasets_list') }}" class="btn btn-secondary"><i class="fas fa-cog mr-1"></i> 测试集管理</a>
+                     <a href="{{ url_for('datasets.datasets_list') }}" class="btn btn-primary btn-sm"><i class="fas fa-cog mr-1"></i> 测试集管理</a>
                 </div>
             </div>
         </div>
@@ -63,14 +70,13 @@
         <!-- 模型评测 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
             <figure class="px-10 pt-10">
-                <i class="fas fa-chart-line text-5xl text-warning"></i>
+                <i class="fas fa-chart-line text-5xl text-primary"></i>
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">模型效果评估</h2>
-                <p>看看你的模型跑的准不准</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-warning"><i class="fas fa-play mr-1"></i> 效果评估</a>
-                    <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-warning"><i class="fas fa-eye mr-1"></i>
+                    <a href="{{ url_for('evaluations.create_evaluation') }}" class="btn btn-primary btn-sm"><i class="fas fa-play mr-1"></i> 效果评估</a>
+                    <a href="{{ url_for('evaluations.evaluations_list') }}" class="btn btn-primary btn-sm"><i class="fas fa-eye mr-1"></i>
                         查看历史</a>
                 </div>
             </div>
@@ -79,14 +85,27 @@
         <!-- 性能评估卡片 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
             <figure class="px-10 pt-10">
-                <i class="fas fa-rocket text-5xl text-purple-500"></i>
+                <i class="fas fa-rocket text-5xl text-primary"></i>
             </figure>
             <div class="card-body items-center text-center">
                 <h2 class="card-title">性能评估</h2>
-                <p>看看你的模型跑的快还是慢</p>
                 <div class="card-actions">
-                    <a href="{{ url_for('perf_eval.create') }}" class="btn btn-primary" style="background-color: #8B5CF6; border-color: #8B5CF6;"><i class="fas fa-play mr-1"></i> 性能评估</a>
-                    <a href="{{ url_for('perf_eval.history') }}" class="btn btn-primary" style="background-color: #8B5CF6; border-color: #8B5CF6;"><i class="fas fa-eye mr-1"></i> 查看历史</a>
+                    <a href="{{ url_for('perf_eval.create') }}" class="btn btn-primary btn-sm" ><i class="fas fa-play mr-1"></i> 性能评估</a>
+                    <a href="{{ url_for('perf_eval.history') }}" class="btn btn-primary btn-sm"><i class="fas fa-eye mr-1"></i> 查看历史</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- RAG评估卡片 -->
+        <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+            <figure class="px-10 pt-10">
+                <i class="fas fa-search text-5xl text-primary"></i>
+            </figure>
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">RAG评估</h2>
+                <div class="card-actions">
+                    <a href="{{ url_for('rag_eval.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-play mr-1"></i> RAG评估</a>
+                    <a href="{{ url_for('rag_eval.history') }}" class="btn btn-primary btn-sm"><i class="fas fa-eye mr-1"></i> 查看历史</a>
                 </div>
             </div>
         </div>
@@ -94,9 +113,9 @@
         <!-- 即将到来功能卡片 -->
         <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow border-2 border-dashed border-base-300">
             <figure class="px-10 pt-10">
-                <i class="fas fa-clock text-5xl text-accent"></i>
+                <i class="fas fa-clock text-5xl text-primary"></i>
             </figure>
-            <div class="card-body items-center text-center">
+            <div class="card-body items-center text-primary">
                 <h2 class="card-title flex items-center gap-2">
                     即将到来
                 </h2>
@@ -108,18 +127,6 @@
                         <span class="font-semibold">安全评估</span>
                         <div class="badge badge-error badge-xs">开发中</div>
                     </div>
-                    
-                    <div class="flex items-center gap-2 text-sm mt-3">
-                        <i class="fas fa-search text-success"></i>
-                        <span class="font-semibold">RAG评估</span>
-                        <div class="badge badge-success badge-xs">开发中</div>
-                    </div>
-                </div>
-                
-                <div class="card-actions">
-                    <button class="btn btn-accent btn-disabled" disabled>
-                        <i class="fas fa-hourglass-half mr-1"></i> 开发中...
-                    </button>
                 </div>
             </div>
         </div>

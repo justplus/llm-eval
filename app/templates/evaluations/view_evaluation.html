@@ -331,7 +331,6 @@
                 
                 // 检查状态是否发生变化
                 if (data.status !== evaluationStatus) {
-                    console.log(`评估状态从 ${evaluationStatus} 变为 ${data.status}`);
                     clearInterval(progressInterval);
                     window.location.reload();
                     return;
@@ -371,7 +370,6 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.status !== evaluationStatus) {
-                        console.log(`状态检查：评估状态从 ${evaluationStatus} 变为 ${data.status}`);
                         clearInterval(progressInterval);
                         clearInterval(statusCheckInterval);
                         window.location.reload();

@@ -15,36 +15,52 @@
             {{ form.hidden_tag() }}
 
             {{ forms.render_field(form.name, placeholder='例如：医学问答数据集', required=True) }}
-            
+
             {{ forms.render_field(form.description, placeholder='详细描述数据集的内容、目的、结构等信息。', html_attrs={'rows': '4'}) }}
-            
+
             <div class="form-control w-full">
                 <label class="label" for="{{ form.format.id }}">
                     <span class="label-text">{{ form.format.label.text }}<span class="text-error">*</span></span>
                 </label>
                 {{ form.format(class="select select-bordered w-full") }}
                 {% if form.format.errors %}
-                    <label class="label">
-                        <span class="label-text-alt text-error">
-                            {% for error in form.format.errors %}{{ error }}<br>{% endfor %}
-                        </span>
-                    </label>
+                <label class="label">
+                    <span class="label-text-alt text-error">
+                        {% for error in form.format.errors %}{{ error }}<br>{% endfor %}
+                    </span>
+                </label>
                 {% endif %}
             </div>
 
             <div class="form-control">
                 <div class="collapse collapse-arrow border border-base-300 bg-base-100 rounded-box">
-                    <input type="checkbox" /> 
+                    <input type="checkbox" />
                     <div class="collapse-title font-medium">
                         数据格式说明
                     </div>
-                    <div class="collapse-content"> 
+                    <div class="collapse-content">
                         <div id="qa-format-info" class="mb-4">
                             <h3 class="font-bold mb-2">问答题格式 (QA) - JSONL文件</h3>
-                            <div class="mockup-code max-h-60 overflow-y-auto">
-                                <pre data-prefix="1"><code>{"system": "xx", "query": "xx", "response": "xx"}</code></pre>
-                                <pre data-prefix="2"><code>{"query": "xx", "response": "xx"}</code></pre>
-                                <pre data-prefix="3"><code>{"query": "xx", "response": "xx"}</code></pre>
+                            <div class="bg-base-300 rounded-lg p-4 max-h-100 overflow-y-auto font-mono text-sm">
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">示例1：</div>
+                                    <div class="whitespace-pre">
+{
+    "system": "你是一个专业的助手",
+    "query": "什么是人工智能？",
+    "response": "人工智能是计算机科学的一个分支..."
+}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">示例2：</div>
+                                    <div class="whitespace-pre">
+{
+    "query": "今天天气怎么样？",
+    "response": "今天天气晴朗，温度适宜。"
+}
+                                    </div>
+                                </div>
                             </div>
                             <p class="text-sm mt-2">
                                 <span class="font-bold">system</span>: 系统提示（可选字段）<br>
@@ -52,13 +68,18 @@
                                 <span class="font-bold">response</span>: 正确回答（必须字段）
                             </p>
                         </div>
-                        
+
                         <div id="mcq-format-info" class="mb-4 hidden">
                             <h3 class="font-bold mb-2">选择题格式 (MCQ) - CSV文件</h3>
-                            <div class="mockup-code max-h-60 overflow-y-auto">
-                                <pre data-prefix="1"><code>id,question,A,B,C,D,answer</code></pre>
-                                <pre data-prefix="2"><code>1,问题x,4种,22种,20种,19种,C</code></pre>
-                                <pre data-prefix="3"><code>2,问题x,尿素,尿酸,丙酮酸,二氧化碳,C</code></pre>
+                            <div class="bg-base-300 rounded-lg p-4 max-h-100 overflow-y-auto font-mono text-sm">
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">CSV格式示例：</div>
+                                    <div class="whitespace-pre">
+id,question,A,B,C,D,answer
+1,以下哪种元素最多,氢,氧,碳,氮,A
+2,地球的卫星是,太阳,月球,火星,金星,B
+                                    </div>
+                                </div>
                             </div>
                             <p class="text-sm mt-2">
                                 <span class="font-bold">id</span>: 序号（可选字段）<br>
@@ -67,17 +88,71 @@
                                 <span class="font-bold">answer</span>: 正确选项（如A,B,C,D）
                             </p>
                         </div>
-                        
+
                         <div id="fill-format-info" class="mb-4 hidden">
                             <h3 class="font-bold mb-2">自定义格式 (CUSTOM) - JSONL文件</h3>
-                            <div class="mockup-code max-h-60 overflow-y-auto">
-                                <pre data-prefix="1"><code>{"history": [{"user": "xx", "assistant": "xx"}], "question": "xx","answer": "xxx"}</code></pre>
-                                <pre data-prefix="2"><code>{"question": "xx", "answer": "xx"}</code></pre>
+                            <div class="bg-base-300 rounded-lg p-4 max-h-100 overflow-y-auto font-mono text-sm">
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">示例1（包含历史对话）：</div>
+                                    <div class="whitespace-pre">
+{
+    "history": [
+        {"user": "你好", "assistant": "你好！有什么可以帮助你的吗？"}
+    ],
+    "question": "请介绍一下机器学习",
+    "answer": "机器学习是人工智能的一个重要分支..."
+}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">示例2（简单格式）：</div>
+                                    <div class="whitespace-pre">
+{
+    "question": "什么是深度学习？",
+    "answer": "深度学习是机器学习的一个子领域..."
+}
+                                    </div>
+                                </div>
                             </div>
                             <p class="text-sm mt-2">
                                 <span class="font-bold">history</span>: 历史对话信息，首轮不用填，有的话使用list格式<br>
                                 <span class="font-bold">question</span>: 用户问题<br>
                                 <span class="font-bold">answer</span>: 正确答案（必须字段）<br>
+                            </p>
+                        </div>
+
+                        <div id="rag-format-info" class="mb-4 hidden">
+                            <h3 class="font-bold mb-2">RAG格式 (RAG) - JSONL文件</h3>
+                            <div class="bg-base-300 rounded-lg p-4 max-h-100 overflow-y-auto font-mono text-sm">
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">示例1（完整格式）：</div>
+                                    <div class="whitespace-pre">
+{
+    "user_input": "第一届奥运会是什么时候举行的？",
+    "retrieved_contexts": [
+        "第一届现代奥运会于1896年4月6日到4月15日在希腊雅典举行。",
+        "这届奥运会共有来自14个国家的241名运动员参加。"
+    ],
+    "response": "第一届现代奥运会于1896年4月6日举行。",
+    "reference": "第一届现代奥运会于1896年4月6日在希腊雅典开幕。"
+}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="text-xs text-gray-500 mb-1">示例2（简化格式）：</div>
+                                    <div class="whitespace-pre">
+{
+    "user_input": "什么是人工智能？",
+    "reference": "人工智能是计算机科学的一个分支..."
+}
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-sm mt-2">
+                                <span class="font-bold">user_input</span>: 用户问题（必须字段）<br>
+                                <span class="font-bold">retrieved_contexts</span>: 检索到的上下文列表（可选字段, 不填需要通过jinja2提供）<br>
+                                <span class="font-bold">response</span>: 模型回答（可选字段, 不填需要通过jinja2提供）<br>
+                                <span class="font-bold">reference</span>: 标准答案（必须字段）<br>
                             </p>
                         </div>
                     </div>
@@ -89,39 +164,7 @@
                 <label class="label" for="{{ form.jinja2_template.id }}">
                     <span class="label-text">{{ form.jinja2_template.label.text }}
                 </label>
-                {{ form.jinja2_template(class="textarea textarea-bordered w-full h-64 font-mono", placeholder='{# 自定义数据集不填写jinja2模版将无法进行效果评估，但是不影响性能评估 #}
-
-{# 获取数据集配置 #}
-{% macro get_config() %}
-{
-    "llm_as_a_judge": false  {# 是否使用LLM作为裁判，默认为false #}
-}
-{% endmacro %}
-
-{# 自定义提示词生成 #}
-{% macro gen_prompt(system_prompt, history, user_prompt) %}
-{# 自定义提示词生成逻辑 #}
-{% endmacro %}
-
-{# 自定义标准答案获取 #}
-{% macro get_gold_answer(input_d) %}
-{# 自定义标准答案获取逻辑 #}
-{% endmacro %}
-
-{# 自定义预测结果解析 #}
-{% macro parse_pred_result(result) %}
-{# 自定义预测结果解析逻辑 #}
-{% endmacro %}
-
-{# 自定义结果比较 #}
-{% macro match(gold, pred) %}
-{# 自定义结果比较逻辑 #}
-{% endmacro %}
-
-{# 自定义指标计算 #}
-{% macro compute_metric(review_res_list) %}
-{# 自定义指标计算逻辑 #}
-{% endmacro %}') }}
+                {{ form.jinja2_template(class="textarea textarea-bordered w-full h-64 font-mono") }}
                 {% if form.jinja2_template.errors %}
                 <label class="label">
                     <span class="label-text-alt text-error">
@@ -130,16 +173,17 @@
                 </label>
                 {% endif %}
                 <label class="label pt-0">
-                    <span class="label-text-alt">模板需要包含以下宏：gen_prompt, get_gold_answer, match, parse_pred_result,
-                        compute_metric</span>
+                    <span class="label-text-alt" id="template-hint">模板需要包含以下宏：gen_prompt, get_gold_answer, match,
+                        parse_pred_result, compute_metric</span>
                 </label>
             </div>
-            
+
             <div class="form-control w-full">
                 <label class="label">
                     <span class="label-text">{{ form.categories.label.text }}</span>
                 </label>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border border-base-300 rounded-md max-h-48 overflow-y-auto">
+                <div
+                    class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border border-base-300 rounded-md max-h-48 overflow-y-auto">
                     {% for subfield in form.categories %}
                     <label class="label cursor-pointer justify-start">
                         {{ subfield(class='checkbox checkbox-sm checkbox-primary') }}
@@ -148,19 +192,19 @@
                     {% endfor %}
                 </div>
                 {% if form.categories.errors %}
-                    <label class="label">
-                        <span class="label-text-alt text-error">
-                            {% for error in form.categories.errors %}{{ error }}<br>{% endfor %}
-                        </span>
-                    </label>
+                <label class="label">
+                    <span class="label-text-alt text-error">
+                        {% for error in form.categories.errors %}{{ error }}<br>{% endfor %}
+                    </span>
+                </label>
                 {% endif %}
                 {% if form.categories.description %}
-                    <label class="label pt-0">
-                        <span class="label-text-alt">{{ form.categories.description }}</span>
-                    </label>
+                <label class="label pt-0">
+                    <span class="label-text-alt">{{ form.categories.description }}</span>
+                </label>
                 {% endif %}
             </div>
-            
+
             {{ forms.render_field(form.dataset_file, type='file') }}
 
             <div class="form-control w-full">
@@ -169,11 +213,11 @@
                 </label>
                 {{ form.visibility(class="select select-bordered w-full") }}
                 {% if form.visibility.errors %}
-                    <label class="label">
-                        <span class="label-text-alt text-error">
-                            {% for error in form.visibility.errors %}{{ error }}<br>{% endfor %}
-                        </span>
-                    </label>
+                <label class="label">
+                    <span class="label-text-alt text-error">
+                        {% for error in form.visibility.errors %}{{ error }}<br>{% endfor %}
+                    </span>
+                </label>
                 {% endif %}
             </div>
 
@@ -203,43 +247,70 @@
     </div>
 </div>
 
+
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const formatSelect = document.getElementById('format');
-    const jinja2TemplateField = document.querySelector('.jinja2-template-field');
-    const qaFormatInfo = document.getElementById('qa-format-info');
-    const mcqFormatInfo = document.getElementById('mcq-format-info');
-    const fillFormatInfo = document.getElementById('fill-format-info');
+    document.addEventListener('DOMContentLoaded', function () {
+        // 获取格式选择器和Jinja2模板文本区域
+        const formatSelect = document.getElementById('format');
+        const jinja2Template = document.querySelector('textarea[name="jinja2_template"]');
+        const jinja2TemplateGroup = document.querySelector('.jinja2-template-field');
+        const templateHint = document.getElementById('template-hint');
+        const qaFormatInfo = document.getElementById('qa-format-info');
+        const mcqFormatInfo = document.getElementById('mcq-format-info');
+        const fillFormatInfo = document.getElementById('fill-format-info');
+        const ragFormatInfo = document.getElementById('rag-format-info');
 
-    updateFormatInfo(formatSelect.value);
 
+        if (!formatSelect || !jinja2Template || !jinja2TemplateGroup) {
+            console.error('Required elements not found!');
+            return;
+        }
+
+        // 从后端获取模板内容
+        const customFormatTemplate = {{ custom_template| tojson
+    }};
+    const ragFormatTemplate = {{ rag_template| tojson }};
+
+    // 更新格式说明和模板可见性
     function updateFormatInfo(format) {
         // 隐藏所有格式说明
         qaFormatInfo.classList.add('hidden');
         mcqFormatInfo.classList.add('hidden');
         fillFormatInfo.classList.add('hidden');
-
-        const selectedFormat = formatSelect.value;
-        if (selectedFormat === 'CUSTOM') {
-            jinja2TemplateField.style.display = 'block';
-        } else {
-            jinja2TemplateField.style.display = 'none';
-        }
+        ragFormatInfo.classList.add('hidden');
 
         // 显示对应的格式说明
         if (format === 'QA') {
             qaFormatInfo.classList.remove('hidden');
+            jinja2TemplateGroup.style.display = 'none';
+            jinja2Template.placeholder = '';
+            if (templateHint) templateHint.textContent = '模板需要包含以下宏: gen_prompt, get_gold_answer, match, parse_pred_result, compute_metric';
         } else if (format === 'MCQ') {
             mcqFormatInfo.classList.remove('hidden');
+            jinja2TemplateGroup.style.display = 'none';
+            jinja2Template.placeholder = '';
+            if (templateHint) templateHint.textContent = '模板需要包含以下宏: gen_prompt, get_gold_answer, match, parse_pred_result, compute_metric';
         } else if (format === 'CUSTOM') {
             fillFormatInfo.classList.remove('hidden');
+            jinja2TemplateGroup.style.display = 'block';
+            jinja2Template.placeholder = customFormatTemplate;
+            if (templateHint) templateHint.textContent = '模板需要包含以下宏: gen_prompt, get_gold_answer, match, parse_pred_result, compute_metric';
+        } else if (format === 'RAG') {
+            ragFormatInfo.classList.remove('hidden');
+            jinja2TemplateGroup.style.display = 'block';
+            jinja2Template.placeholder = ragFormatTemplate;
+            if (templateHint) templateHint.textContent = '如果数据集中包含了retrieved_contexts和response则不需要此jinja2, 否则模板需要包含以下宏: get_context, get_response';
         }
     }
-    
+
+    // 初始化时调用一次
+    updateFormatInfo(formatSelect.value);
+
+    // 当格式选择改变时更新
     formatSelect.addEventListener('change', function () {
         updateFormatInfo(this.value);
     });
-    updateFields(); // 初始化时执行一次
-});
+}); 
 </script>
-{% endblock %} 
+{% endblock %}

@@ -1,0 +1,28 @@
+[
+    {
+        "user_input":"第一届奥运会是什么时候举行的？",
+        "retrieved_contexts":[
+            "第一届现代奥运会于1896年4月6日到4月15日在希腊雅典举行。"
+        ],
+        "response":"第一届现代奥运会于1896年4月6日举行。",
+        "reference":"第一届现代奥运会于1896年4月6日在希腊雅典开幕。",
+        "faithfulness":1.0,
+        "answer_relevancy":0.781692476,
+        "context_precision":0.9999999999,
+        "answer_correctness":0.7194841682,
+        "context_recall":1.0
+    },
+    {
+        "user_input":"哪位运动员赢得了最多的奥运金牌？",
+        "retrieved_contexts":[
+            "迈克尔·菲尔普斯是历史上获得奥运金牌最多的运动员，他共赢得了23枚奥运金牌。"
+        ],
+        "response":"迈克尔·菲尔普斯赢得了最多的奥运金牌。",
+        "reference":"迈克尔·菲尔普斯是获得奥运金牌最多的运动员，共赢得23枚金牌。",
+        "faithfulness":1.0,
+        "answer_relevancy":0.9411799429,
+        "context_precision":0.9999999999,
+        "answer_correctness":0.7127981372,
+        "context_recall":1.0
+    }
+]

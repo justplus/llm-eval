@@ -9,7 +9,7 @@
     <script>
         (function() {
             // 立即从localStorage获取保存的主题并应用
-            const savedTheme = localStorage.getItem('selectedTheme') || 'retro';
+            const savedTheme = localStorage.getItem('selectedTheme') || 'winter';
             document.documentElement.setAttribute('data-theme', savedTheme);
         })();
     </script>
@@ -89,6 +89,15 @@
                                 <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">
                                     <li><a href="{{ url_for('perf_eval.create') }}">开始评估</a></li>
                                     <li><a href="{{ url_for('perf_eval.history') }}">评估历史</a></li>
+                                </ul>
+                            </details>
+                        </li>
+                        <li>
+                            <details id="rag-eval-dropdown-details">
+                                <summary class="whitespace-nowrap">RAG评估</summary>
+                                <ul class="p-2 bg-base-100 rounded-t-none shadow-lg z-[1001] w-max">
+                                    <li><a href="{{ url_for('rag_eval.create') }}">开始评估</a></li>
+                                    <li><a href="{{ url_for('rag_eval.history') }}">评估历史</a></li>
                                 </ul>
                             </details>
                         </li>

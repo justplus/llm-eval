@@ -218,6 +218,14 @@ def create_app(config_name=None):
     from app.routes.perf_eval_routes import perf_eval_bp
     app.register_blueprint(perf_eval_bp)
 
+    # 注册RAG评估蓝图
+    from app.routes.rag_eval_routes import bp as rag_eval_bp
+    app.register_blueprint(rag_eval_bp)
+
+    # 注册API路由蓝图
+    from app.routes.api_routes import bp as api_bp
+    app.register_blueprint(api_bp)
+
     # 错误处理器，需要正确缩进到create_app函数内部
     @app.errorhandler(400)
     def bad_request_error(error):

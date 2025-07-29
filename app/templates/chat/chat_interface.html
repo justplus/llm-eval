@@ -278,13 +278,6 @@ document.addEventListener('DOMContentLoaded', function () {
             match = decodedMarkdown.match(thinkAnswerRegex);
         }
         
-        console.log('推理内容匹配结果:', match);
-        console.log('解码后内容前200字符:', decodedMarkdown.substring(0, 200));
-        console.log('是否包含<think>:', decodedMarkdown.includes('<think>'));
-        console.log('是否包含</think>:', decodedMarkdown.includes('</think>'));
-        console.log('是否包含<answer>:', decodedMarkdown.includes('<answer>'));
-        console.log('是否包含</answer>:', decodedMarkdown.includes('</answer>'));
-        
         if (match && match[1] && match[2]) {
             // 有推理内容，创建特殊布局
             const thinkingText = match[1].trim();
@@ -394,14 +387,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     // 同时保存到本地存储作为备份
                     localStorage.setItem(`chat_model_config_${sessionId}`, JSON.stringify(configs));
-                    console.log("配置已保存到服务器和本地存储");
                 }
             } catch (error) {
                 console.error('保存模型配置时出错:', error);
                 // 尝试只保存到本地
                 try {
                     localStorage.setItem(`chat_model_config_${sessionId}`, JSON.stringify(configs));
-                    console.log("配置已保存到本地存储（服务器保存失败）");
                 } catch (e) {
                     console.error("保存到本地存储也失败:", e);
                 }
@@ -458,7 +449,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             
             updateAddModelBtnState();
-            console.log('已从服务器恢复保存的模型配置');
             return true;
         } catch (error) {
             console.error('从服务器加载模型配置时出错:', error);
@@ -515,7 +505,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             
             updateAddModelBtnState();
-            console.log("已从本地存储恢复配置");
             return true;
         } catch (error) {
             console.error("从本地存储恢复配置时出错:", error);
@@ -555,7 +544,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             
             if (!response.ok) {
-                console.log('服务器获取配置失败或配置不存在');
                 return false;
             }
             
@@ -563,7 +551,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const savedConfigs = data.model_configs;
             
             if (!savedConfigs || !Array.isArray(savedConfigs) || savedConfigs.length === 0) {
-                console.log('服务器返回空配置');
                 return false;
             }
             
@@ -606,7 +593,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             
             updateAddModelBtnState();
-            console.log('已从服务器动态加载保存的模型配置');
             return true;
         } catch (error) {
             console.error('动态加载服务器配置时出错:', error);
@@ -621,24 +607,17 @@ document.addEventListener('DOMContentLoaded', function () {
         // 1. 首先尝试从服务器动态加载配置
         configLoaded = await loadSavedConfigsFromServer();
         if (configLoaded) {
-            console.log('已成功从服务器动态加载配置');
         } else {
             // 2. 如果动态加载失败，尝试从模板渲染的数据加载
             configLoaded = loadSavedConfigs();
-            if (configLoaded) {
-                console.log('已成功从模板数据加载配置');
-            } else {
+            if (!configLoaded) {
                 // 3. 如果模板数据也没有，尝试从本地存储加载
                 configLoaded = loadSavedConfigFromLocalStorage();
-                if (configLoaded) {
-                    console.log('已成功从本地存储加载配置');
-                }
             }
         }
         
         // 4. 如果所有方式都没有配置，创建默认面板
         if (!configLoaded) {
-            console.log('没有找到已保存的配置，创建默认面板');
             // 检查是否已有默认面板
             const firstPanelInHtml = modelPanelsContainer.querySelector('.model-config-panel');
             if (firstPanelInHtml) {
@@ -1029,7 +1008,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             
                             // 检查是否收到所有模型完成的事件
                             if (eventData.all_models_completed) {
-                                console.log('所有模型响应已完成');
                                 continue;
                             }
                             
@@ -1152,9 +1130,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             }
                             
                             // 处理最终块
-                            if (eventData.is_final_chunk) {
-                                console.log(`模型 ${eventData.model_name} (${modelId}) 响应完成`);
-                                
+                            if (eventData.is_final_chunk) {                                
                                 // 如果仍有打字指示器，移除它
                                 if (elements.typingIndicator && elements.typingIndicator.parentNode) {
                                     elements.typingIndicator.remove();
@@ -1184,9 +1160,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         thinkAnswerRegex = /<think>([\s\S]*?)<\/think><answer>([\s\S]*?)<\/answer>/;
                                         match = decodedContent.match(thinkAnswerRegex);
                                     }
-                                    
-                                    console.log('最终块推理内容匹配结果:', match);
-                                    
+                                                                        
                                     if (match && match[1] && match[2]) {
                                         // 有推理内容
                                         const thinkingText = match[1].trim();

@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block title %}{{ evaluation.name }} - RAG评估详情 - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- 页面头部 -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">{{ evaluation.name }}</h1>
+            <p class="text-base-content/70 mt-2">RAG评估详情</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ url_for('rag_eval.history') }}" class="btn btn-outline">
+                <i class="fas fa-arrow-left mr-2"></i>返回列表
+            </a>
+        </div>
+    </div>
+
+    <!-- 评估概览 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- 基本信息 -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-info-circle mr-2"></i>基本信息
+                </h2>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/70">状态:</span>
+                        {% if evaluation.status == 'pending' %}
+                        <div class="badge badge-warning">等待中</div>
+                        {% elif evaluation.status == 'running' %}
+                        <div class="badge badge-info">运行中</div>
+                        {% elif evaluation.status == 'completed' %}
+                        <div class="badge badge-success">已完成</div>
+                        {% elif evaluation.status == 'failed' %}
+                        <div class="badge badge-error">失败</div>
+                        {% endif %}
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/70">创建时间:</span>
+                        <span>{{ evaluation.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                    {% if evaluation.completed_at %}
+                    <div class="flex justify-between">
+                        <span class="text-base-content/70">完成时间:</span>
+                        <span>{{ evaluation.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                    {% endif %}
+                    {% if evaluation.limit %}
+                    <div class="flex justify-between">
+                        <span class="text-base-content/70">评估限制:</span>
+                        <span>{{ evaluation.limit }} 条</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 模型配置 -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-cogs mr-2"></i>模型配置
+                </h2>
+                <div class="space-y-3">
+                    <div>
+                        <div class="text-sm font-semibold text-base-content/70">裁判模型</div>
+                        <div>{{ evaluation.judge_model.display_name }}</div>
+                        <div class="text-xs text-base-content/70">
+                            T={{ evaluation.judge_temperature }}, Max={{ evaluation.judge_max_tokens }}, 
+                            K={{ evaluation.judge_top_k }}, P={{ evaluation.judge_top_p }}
+                        </div>
+                    </div>
+                    <div class="divider my-2"></div>
+                    <div>
+                        <div class="text-sm font-semibold text-base-content/70">嵌入模型</div>
+                        <div>{{ evaluation.embedding_model.display_name }}</div>
+                        <div class="text-xs text-base-content/70">维度: {{ evaluation.embedding_dimension }}</div>
+                        {% if evaluation.evaluation_metrics %}
+                        <div class="text-xs text-base-content/70 mt-1">
+                            评估指标: {{ evaluation.evaluation_metrics|join(', ') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据集信息 -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-database mr-2"></i>数据集
+                </h2>
+                <div class="space-y-2">
+                    {% for dataset_rel in evaluation.datasets %}
+                    <div class="badge badge-outline">{{ dataset_rel.dataset.name }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 评估结果汇总 -->
+    {% if evaluation.result_summary %}
+    <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i class="fas fa-chart-bar mr-2"></i>评估结果汇总
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
+                {% set summary = evaluation.result_summary %}
+                {% if summary.avg_relevance_score %}
+                <div class="stat">
+                    <div class="stat-title">相关性</div>
+                    <div class="stat-value text-2xl">{{ "%.2f"|format(summary.avg_relevance_score) }}</div>
+                </div>
+                {% endif %}
+                {% if summary.avg_faithfulness_score %}
+                <div class="stat">
+                    <div class="stat-title">忠实性</div>
+                    <div class="stat-value text-2xl">{{ "%.2f"|format(summary.avg_faithfulness_score) }}</div>
+                </div>
+                {% endif %}
+                {% if summary.avg_answer_correctness_score %}
+                <div class="stat">
+                    <div class="stat-title">答案正确性</div>
+                    <div class="stat-value text-2xl">{{ "%.2f"|format(summary.avg_answer_correctness_score) }}</div>
+                </div>
+                {% endif %}
+                {% if summary.avg_context_precision_score %}
+                <div class="stat">
+                    <div class="stat-title">上下文精确性</div>
+                    <div class="stat-value text-2xl">{{ "%.2f"|format(summary.avg_context_precision_score) }}</div>
+                </div>
+                {% endif %}
+                {% if summary.avg_context_recall_score %}
+                <div class="stat">
+                    <div class="stat-title">上下文召回率</div>
+                    <div class="stat-value text-2xl">{{ "%.2f"|format(summary.avg_context_recall_score) }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 详细结果 -->
+    {% if results %}
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i class="fas fa-list mr-2"></i>详细结果 ({{ results|length }} 条)
+            </h2>
+            <div class="overflow-x-auto mt-4">
+                <table class="table table-zebra table-sm">
+                    <thead>
+                        <tr>
+                            <th>问题</th>
+                            <th>相关性</th>
+                            <th>忠实性</th>
+                            <th>答案正确性</th>
+                            <th>上下文精确性</th>
+                            <th>上下文召回率</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td>
+                                <div class="max-w-xs truncate" title="{{ result.user_input }}">
+                                    {{ result.user_input }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if result.relevance_score is not none %}
+                                <div class="badge badge-sm {% if result.relevance_score >= 0.8 %}badge-success{% elif result.relevance_score >= 0.6 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ "%.2f"|format(result.relevance_score) }}
+                                </div>
+                                {% else %}
+                                <span class="text-base-content/50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.faithfulness_score is not none %}
+                                <div class="badge badge-sm {% if result.faithfulness_score >= 0.8 %}badge-success{% elif result.faithfulness_score >= 0.6 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ "%.2f"|format(result.faithfulness_score) }}
+                                </div>
+                                {% else %}
+                                <span class="text-base-content/50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.answer_correctness_score is not none %}
+                                <div class="badge badge-sm {% if result.answer_correctness_score >= 0.8 %}badge-success{% elif result.answer_correctness_score >= 0.6 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ "%.2f"|format(result.answer_correctness_score) }}
+                                </div>
+                                {% else %}
+                                <span class="text-base-content/50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.context_precision_score is not none %}
+                                <div class="badge badge-sm {% if result.context_precision_score >= 0.8 %}badge-success{% elif result.context_precision_score >= 0.6 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ "%.2f"|format(result.context_precision_score) }}
+                                </div>
+                                {% else %}
+                                <span class="text-base-content/50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.context_recall_score is not none %}
+                                <div class="badge badge-sm {% if result.context_recall_score >= 0.8 %}badge-success{% elif result.context_recall_score >= 0.6 %}badge-warning{% else %}badge-error{% endif %}">
+                                    {{ "%.2f"|format(result.context_recall_score) }}
+                                </div>
+                                {% else %}
+                                <span class="text-base-content/50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-xs btn-outline" onclick="showResultDetail({{ result.id }})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 如果评估还在进行中 -->
+    {% if evaluation.status in ['pending', 'running'] %}
+    <div class="alert alert-info mt-8">
+        <i class="fas fa-info-circle"></i>
+        <div>
+            <h4 class="font-bold">评估进行中</h4>
+            <p>RAG评估任务正在后台运行，请稍后刷新页面查看结果。</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 结果详情模态框 -->
+<input type="checkbox" id="result-detail-modal" class="modal-toggle" />
+<div class="modal" onclick="closeModal(event)">
+    <div class="modal-box max-w-4xl relative">
+        <!-- 右上角关闭按钮 -->
+        <label for="result-detail-modal" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+            <i class="fas fa-times"></i>
+        </label>
+        
+        <h3 class="font-bold text-lg mb-4 pr-8">评估结果详情</h3>
+        <div id="result-detail-content">
+            <!-- 动态加载内容 -->
+        </div>
+    </div>
+</div>
+
+<script>
+function showResultDetail(resultId) {
+    // 显示加载状态
+    document.getElementById('result-detail-content').innerHTML = `
+        <div class="flex justify-center items-center py-8">
+            <span class="loading loading-spinner loading-lg"></span>
+            <span class="ml-2">加载中...</span>
+        </div>
+    `;
+    document.getElementById('result-detail-modal').checked = true;
+    
+    // 通过AJAX加载详细结果
+    fetch(`/rag-evaluation/result/${resultId}`)
+        .then(response => response.json())
+        .then(data => {
+            const content = `
+                <div class="space-y-6">
+                    <!-- 问题 -->
+                    <div class="card bg-base-200">
+                        <div class="card-body" style="padding: 1rem 1rem;">
+                            <h4 class="card-title text-lg">
+                                <i class="fas fa-question-circle mr-2"></i>问题
+                            </h4>
+                            <p class="whitespace-pre-wrap">${data.user_input || '无'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 检索上下文 -->
+                    <div class="card bg-base-200">
+                        <div class="card-body" style="padding: 1rem 1rem;">
+                            <h4 class="card-title text-lg">
+                                <i class="fas fa-search mr-2"></i>检索上下文
+                            </h4>
+                            ${data.retrieved_contexts && data.retrieved_contexts.length > 0 ? 
+                                data.retrieved_contexts.map((context, index) => `
+                                    <div class="mb-3 p-3 bg-base-100 rounded">
+                                        <div class="text-sm font-semibold text-base-content/70 mb-1">上下文 ${index + 1}</div>
+                                        <p class="whitespace-pre-wrap text-sm">${context}</p>
+                                    </div>
+                                `).join('') : 
+                                '<p class="text-base-content/70">无检索上下文</p>'
+                            }
+                        </div>
+                    </div>
+                    
+                    <!-- 模型回答 -->
+                    <div class="card bg-base-200">
+                        <div class="card-body" style="padding: 1rem 1rem;">
+                            <h4 class="card-title text-lg">
+                                <i class="fas fa-robot mr-2"></i>模型回答
+                            </h4>
+                            <p class="whitespace-pre-wrap">${data.response || '无'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 参考答案 -->
+                    <div class="card bg-base-200">
+                        <div class="card-body" style="padding: 1rem 1rem;">
+                            <h4 class="card-title text-lg">
+                                <i class="fas fa-check-circle mr-2"></i>参考答案
+                            </h4>
+                            <p class="whitespace-pre-wrap">${data.reference_answer || '无'}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 评估指标 -->
+                    <div class="card bg-base-200">
+                        <div class="card-body" style="padding: 1rem 1rem;">
+                            <h4 class="card-title text-lg">
+                                <i class="fas fa-chart-bar mr-2"></i>评估指标
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                ${data.relevance_score !== null ? `
+                                    <div class="stat bg-base-100 rounded">
+                                        <div class="stat-title">相关性</div>
+                                        <div class="stat-value text-lg ${data.relevance_score >= 0.8 ? 'text-success' : data.relevance_score >= 0.6 ? 'text-warning' : 'text-error'}">${data.relevance_score.toFixed(2)}</div>
+                                    </div>
+                                ` : ''}
+                                ${data.faithfulness_score !== null ? `
+                                    <div class="stat bg-base-100 rounded">
+                                        <div class="stat-title">忠实性</div>
+                                        <div class="stat-value text-lg ${data.faithfulness_score >= 0.8 ? 'text-success' : data.faithfulness_score >= 0.6 ? 'text-warning' : 'text-error'}">${data.faithfulness_score.toFixed(2)}</div>
+                                    </div>
+                                ` : ''}
+                                ${data.answer_correctness_score !== null ? `
+                                    <div class="stat bg-base-100 rounded">
+                                        <div class="stat-title">答案正确性</div>
+                                        <div class="stat-value text-lg ${data.answer_correctness_score >= 0.8 ? 'text-success' : data.answer_correctness_score >= 0.6 ? 'text-warning' : 'text-error'}">${data.answer_correctness_score.toFixed(2)}</div>
+                                    </div>
+                                ` : ''}
+                                ${data.context_precision_score !== null ? `
+                                    <div class="stat bg-base-100 rounded">
+                                        <div class="stat-title">上下文精确性</div>
+                                        <div class="stat-value text-lg ${data.context_precision_score >= 0.8 ? 'text-success' : data.context_precision_score >= 0.6 ? 'text-warning' : 'text-error'}">${data.context_precision_score.toFixed(2)}</div>
+                                    </div>
+                                ` : ''}
+                                ${data.context_recall_score !== null ? `
+                                    <div class="stat bg-base-100 rounded">
+                                        <div class="stat-title">上下文召回率</div>
+                                        <div class="stat-value text-lg ${data.context_recall_score >= 0.8 ? 'text-success' : data.context_recall_score >= 0.6 ? 'text-warning' : 'text-error'}">${data.context_recall_score.toFixed(2)}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('result-detail-content').innerHTML = content;
+        })
+        .catch(error => {
+            console.error('加载结果详情失败:', error);
+            document.getElementById('result-detail-content').innerHTML = `
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>加载结果详情失败，请稍后重试。</span>
+                </div>
+            `;
+        });
+}
+
+// 点击模态框外部关闭
+function closeModal(event) {
+    if (event.target.classList.contains('modal')) {
+        document.getElementById('result-detail-modal').checked = false;
+    }
+}
+
+// 如果评估正在运行，定期检查状态
+{% if evaluation.status in ['pending', 'running'] %}
+function checkEvaluationStatus() {
+    fetch(`/rag-evaluation/{{ evaluation.id }}/status`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'completed' || data.status === 'failed') {
+                location.reload();
+            }
+        })
+        .catch(error => console.error('检查状态失败:', error));
+}
+
+// 每30秒检查一次状态
+setInterval(checkEvaluationStatus, 30000);
+{% endif %}
+</script>
+{% endblock %}
