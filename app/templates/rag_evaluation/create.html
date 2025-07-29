@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}创建RAG评估 - {{ super() }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .dataset-card.selected {
+        border: 2px solid var(--p);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">创建RAG评估</h1>
+        <a href="{{ url_for('rag_eval.history') }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-arrow-left mr-1"></i> 返回评估列表
+        </a>
+    </div>
+
+    <form method="POST" action="{{ url_for('rag_eval.create') }}">
+        {% from "_form_helpers.html" import render_csrf_token %}
+        {{ render_csrf_token() }}
+
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-cog mr-2"></i> 基本配置
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 评估名称 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">评估名称</span>
+                        </label>
+                        <input type="text" name="name" placeholder="为此次RAG评估取个名称 (可选)" class="input input-bordered" />
+                    </div>
+
+                    <!-- 裁判模型 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">裁判模型 *</span>
+                            <span class="label-text-alt text-info" title="裁判模型将对RAG系统的回答进行评分">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                        </label>
+                        <select name="judge_model_id" class="select select-bordered w-full" required>
+                            <option value="">请选择裁判模型</option>
+                            {% for choice in form.judge_model_id.choices %}
+                            <option value="{{ choice[0] }}">{{ choice[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 嵌入模型 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">嵌入模型 *</span>
+                            <span class="label-text-alt text-info" title="用于计算文本相似度的嵌入模型">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                        </label>
+                        <select name="embedding_model_id" class="select select-bordered w-full" required>
+                            <option value="">请选择嵌入模型</option>
+                            {% for choice in form.embedding_model_id.choices %}
+                            <option value="{{ choice[0] }}">{{ choice[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 嵌入维度 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">嵌入维度</span>
+                        </label>
+                        <input type="number" name="embedding_dimension" value="1024" min="1"
+                            class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">嵌入向量的维度，不能超过模型的最大维度</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <h3 class="text-lg font-semibold mb-2">
+                    <i class="fas fa-sliders-h mr-2"></i> 裁判模型参数
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 温度 -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">温度 (Temperature)</span>
+                            <span class="label-text-alt" id="temperature-value">0.7</span>
+                        </label>
+                        <input type="range" name="judge_temperature" min="0" max="1" value="0.7" step="0.1"
+                            class="range range-primary"
+                            oninput="document.getElementById('temperature-value').textContent = this.value" />
+                        <div class="w-full flex justify-between text-xs px-2 mt-1">
+                            <span>精确</span>
+                            <span>创意</span>
+                        </div>
+                    </div>
+
+                    <!-- 最大Token -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">最大生成Token数</span>
+                        </label>
+                        <select name="judge_max_tokens" class="select select-bordered w-full">
+                            <option value="1024">1024</option>
+                            <option value="2048" selected>2048</option>
+                            <option value="4096">4096</option>
+                            <option value="8192">8192</option>
+                        </select>
+                    </div>
+
+                    <!-- Top-K -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">top_k</span>
+                            <span class="label-text-alt text-info" title="控制生成时考虑的词汇数量">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                        </label>
+                        <input type="number" name="judge_top_k" value="20" min="1" max="100"
+                            class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">控制生成时考虑的词汇数量，值越小生成越保守</span>
+                        </label>
+                    </div>
+
+                    <!-- Top-P -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">top_p</span>
+                            <span class="label-text-alt text-info" title="控制生成时考虑的词汇概率累积">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                        </label>
+                        <input type="number" name="judge_top_p" value="0.8" min="0" max="1" step="0.1"
+                            class="input input-bordered" />
+                        <label class="label">
+                            <span class="label-text-alt">控制生成时考虑的词汇概率累积，值越小生成越保守</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-chart-line mr-2"></i> 选择评估指标
+                </h2>
+                <p class="text-sm text-base-content/70 mb-4">选择要评估的RAG指标。默认已选中所有指标。</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start">
+                            <input type="checkbox" name="evaluation_metrics" value="Faithfulness"
+                                class="checkbox checkbox-primary checkbox-sm mr-3" checked />
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-shield-alt text-success"></i>
+                                <div>
+                                    <div class="font-semibold">忠实性 (Faithfulness)</div>
+                                    <div class="text-xs text-base-content/70">生成答案对检索上下文的忠实程度</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start">
+                            <input type="checkbox" name="evaluation_metrics" value="AnswerRelevancy"
+                                class="checkbox checkbox-primary checkbox-sm mr-3" checked />
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-bullseye text-primary"></i>
+                                <div>
+                                    <div class="font-semibold">答案相关性 (Answer Relevancy)</div>
+                                    <div class="text-xs text-base-content/70">生成答案与问题的相关程度</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start">
+                            <input type="checkbox" name="evaluation_metrics" value="ContextPrecision"
+                                class="checkbox checkbox-primary checkbox-sm mr-3" checked />
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-crosshairs text-warning"></i>
+                                <div>
+                                    <div class="font-semibold">上下文精确性 (Context Precision)</div>
+                                    <div class="text-xs text-base-content/70">检索上下文的精确性</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start">
+                            <input type="checkbox" name="evaluation_metrics" value="AnswerCorrectness"
+                                class="checkbox checkbox-primary checkbox-sm mr-3" checked />
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-check-circle text-info"></i>
+                                <div>
+                                    <div class="font-semibold">答案正确性 (Answer Correctness)</div>
+                                    <div class="text-xs text-base-content/70">生成答案与参考答案的匹配程度</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label cursor-pointer justify-start">
+                            <input type="checkbox" name="evaluation_metrics" value="ContextRecall"
+                                class="checkbox checkbox-primary checkbox-sm mr-3" checked />
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-search-plus text-error"></i>
+                                <div>
+                                    <div class="font-semibold">上下文召回率 (Context Recall)</div>
+                                    <div class="text-xs text-base-content/70">检索上下文的召回率</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <h2 class="card-title">
+                    <i class="fas fa-database mr-2"></i> 选择评估数据集
+                </h2>
+                <p class="text-sm text-base-content/70 mb-4">选择一个RAG格式的数据集用于评估。</p>
+
+
+                {% if form.dataset_id.choices %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for choice in form.dataset_id.choices %}
+                    {% set dataset_id = choice[0] %}
+                    {% set dataset_name = choice[1] %}
+                    <div class="card bg-base-200 dataset-card hover:bg-base-300 cursor-pointer transition-all"
+                        onclick="handleCardClick(event, this, {{ dataset_id }})">
+                        <div class="card-body p-4">
+                            <div class="flex justify-between">
+                                <h3 class="font-semibold">{{ dataset_name }}</h3>
+                                <div class="form-control">
+                                    <label class="cursor-pointer label py-0">
+                                        <input type="radio" name="dataset_id" value="{{ dataset_id }}"
+                                            class="radio radio-primary radio-sm dataset-radio" />
+                                    </label>
+                                </div>
+                            </div>
+                            <p class="text-xs text-base-content/70">RAG格式数据集</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>没有可用的RAG格式数据集。请先在测试集管理中添加RAG格式的数据集。</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" id="submit-btn" class="btn btn-primary">
+                <i class="fas fa-play-circle mr-1"></i> 开始RAG评估
+            </button>
+        </div>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // 防止重复点击的变量
+    let isSubmitting = false;
+
+    // 处理卡片点击事件
+    function handleCardClick(event, cardElement, datasetId) {
+        // 如果点击的是单选按钮或其标签，不处理
+        if (event.target.type === 'radio' || event.target.closest('label')) {
+            return;
+        }
+
+        // 否则选中当前单选按钮
+        const radio = cardElement.querySelector('.dataset-radio');
+        radio.checked = true;
+
+        // 手动触发change事件
+        radio.dispatchEvent(new Event('change'));
+    }
+
+    // 更新卡片样式
+    function updateCardStyle(cardElement, isSelected) {
+        if (isSelected) {
+            cardElement.classList.add('selected');
+        } else {
+            cardElement.classList.remove('selected');
+        }
+    }
+
+    // 防止重复提交
+    function preventDuplicateSubmit(event) {
+        if (isSubmitting) {
+            event.preventDefault();
+            return false;
+        }
+
+        // 验证表单
+        const form = event.target.closest('form');
+        if (!form) {
+            console.error('找不到表单元素');
+            return true;
+        }
+
+        // 检查是否选择了数据集
+        const selectedDataset = form.querySelector('input[name="dataset_id"]:checked');
+        if (!selectedDataset) {
+            alert('请选择一个数据集进行评估');
+            event.preventDefault();
+            return false;
+        }
+
+        // 检查是否选择了裁判模型
+        const judgeModelSelect = form.querySelector('select[name="judge_model_id"]');
+        if (!judgeModelSelect.value) {
+            alert('请选择裁判模型');
+            event.preventDefault();
+            return false;
+        }
+
+        // 检查是否选择了嵌入模型
+        const embeddingModelSelect = form.querySelector('select[name="embedding_model_id"]');
+        if (!embeddingModelSelect.value) {
+            alert('请选择嵌入模型');
+            event.preventDefault();
+            return false;
+        }
+
+        // 检查是否选择了评估指标
+        const selectedMetrics = form.querySelectorAll('input[name="evaluation_metrics"]:checked');
+        if (selectedMetrics.length === 0) {
+            alert('请至少选择一个评估指标');
+            event.preventDefault();
+            return false;
+        }
+
+        // 设置提交状态
+        isSubmitting = true;
+        const submitBtn = document.getElementById('submit-btn');
+        const originalText = submitBtn.innerHTML;
+
+        // 更新按钮状态
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 正在创建RAG评估...';
+        submitBtn.classList.add('btn-disabled');
+
+        // 显示提示信息
+        showNotification('正在创建RAG评估任务，请稍候...', 'info');
+
+        return true;
+    }
+
+    // 显示通知
+    function showNotification(message, type = 'info') {
+        // 创建通知元素
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} fixed top-4 right-4 z-50 max-w-sm`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-${type === 'info' ? 'info-circle' : 'exclamation-triangle'} mr-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+
+        // 添加到页面
+        document.body.appendChild(notification);
+
+        // 3秒后自动移除
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+
+    // 监听单选按钮变化事件
+    document.addEventListener('DOMContentLoaded', function () {
+        const radios = document.querySelectorAll('.dataset-radio');
+        radios.forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                // 清除所有卡片的选中状态
+                document.querySelectorAll('.dataset-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
+                // 设置当前选中卡片的样式
+                if (this.checked) {
+                    const card = this.closest('.dataset-card');
+                    updateCardStyle(card, true);
+                }
+            });
+        });
+
+        // 监听表单提交事件
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', preventDuplicateSubmit);
+        }
+    });
+</script>
+{% endblock %}

@@ -28,16 +28,17 @@
                 <h2 class="card-title">
                     <i class="fas fa-cog mr-2"></i> 基本配置
                 </h2>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- 评估名称 -->
                     <div class="form-control">
                         <label class="label">
                             <span class="label-text">评估名称 *</span>
                         </label>
-                        <input type="text" name="evaluation_name" placeholder="为此次评估取个名称 (可选)" class="input input-bordered" />
+                        <input type="text" name="evaluation_name" placeholder="为此次评估取个名称 (可选)"
+                            class="input input-bordered" />
                     </div>
-                    
+
                     <!-- 被评估模型 -->
                     <div class="form-control">
                         <label class="label">
@@ -46,7 +47,8 @@
                         <select name="model_id" class="select select-bordered w-full" required>
                             <option value="">请选择要评估的自定义模型</option>
                             {% for model in custom_models %}
-                                <option value="{{ model.id }}">{{ model.display_name }}{% if not model.is_validated %} (未验证){% endif %}</option>
+                            <option value="{{ model.id }}">{{ model.display_name }}{% if not model.is_validated %}
+                                (未验证){% endif %}</option>
                             {% endfor %}
                         </select>
                         {% if not custom_models %}
@@ -58,7 +60,7 @@
                         </label>
                         {% endif %}
                     </div>
-                    
+
                     <!-- 裁判模型 -->
                     <div class="form-control">
                         <label class="label">
@@ -70,18 +72,18 @@
                         <select name="judge_model_id" class="select select-bordered w-full">
                             <option value="">请选择裁判模型</option>
                             {% for model in all_models %}
-                                <option value="{{ model.id }}">{{ model.display_name }}</option>
+                            <option value="{{ model.id }}">{{ model.display_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="divider"></div>
-                
+
                 <h3 class="text-lg font-semibold mb-2">
                     <i class="fas fa-sliders-h mr-2"></i> 生成参数
                 </h3>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- 温度 -->
                     <div class="form-control">
@@ -89,14 +91,15 @@
                             <span class="label-text">温度 (Temperature)</span>
                             <span class="label-text-alt" id="temperature-value">0.7</span>
                         </label>
-                        <input type="range" name="temperature" min="0" max="1" value="0.7" step="0.1" class="range range-primary" 
-                               oninput="document.getElementById('temperature-value').textContent = this.value" />
+                        <input type="range" name="temperature" min="0" max="1" value="0.7" step="0.1"
+                            class="range range-primary"
+                            oninput="document.getElementById('temperature-value').textContent = this.value" />
                         <div class="w-full flex justify-between text-xs px-2 mt-1">
                             <span>精确</span>
                             <span>创意</span>
                         </div>
                     </div>
-                    
+
                     <!-- 最大Token -->
                     <div class="form-control">
                         <label class="label">
@@ -115,7 +118,7 @@
                             <option value="8192">8192</option>
                         </select>
                     </div>
-                    
+
                     <!-- Top-K -->
                     <div class="form-control">
                         <label class="label">
@@ -129,7 +132,7 @@
                             <span class="label-text-alt">控制生成时考虑的词汇数量，值越小生成越保守</span>
                         </label>
                     </div>
-                    
+
                     <!-- Top-P -->
                     <div class="form-control">
                         <label class="label">
@@ -138,31 +141,33 @@
                                 <i class="fas fa-info-circle"></i>
                             </span>
                         </label>
-                        <input type="number" name="top_p" value="0.8" min="0" max="1" step="0.1" class="input input-bordered" />
+                        <input type="number" name="top_p" value="0.8" min="0" max="1" step="0.1"
+                            class="input input-bordered" />
                         <label class="label">
                             <span class="label-text-alt">控制生成时考虑的词汇概率累积，值越小生成越保守</span>
                         </label>
                     </div>
                 </div>
-                
+
                 <div class="divider"></div>
-                
+
                 <h3 class="text-lg font-semibold mb-2">
                     <i class="fas fa-cogs mr-2"></i> 并发设置
                 </h3>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- 限制评估数量 -->
                     <div class="form-control w-full">
                         <label class="label">
                             <span class="label-text">限制评估数量 (每个数据集子集)</span>
                         </label>
-                        <input type="number" name="limit" placeholder="例如: 10 (留空或0表示不限制或默认)" class="input input-bordered w-full" min="0" />
+                        <input type="number" name="limit" placeholder="例如: 10 (留空或0表示不限制或默认)"
+                            class="input input-bordered w-full" min="0" />
                         <label class="label">
                             <span class="label-text-alt">填写一个数字，例如10。如果留空，将是数据集全量参与评估。</span>
                         </label>
                     </div>
-                    
+
                     <!-- 评估并发数 -->
                     <div class="form-control">
                         <label class="label">
@@ -171,12 +176,13 @@
                                 <i class="fas fa-info-circle"></i>
                             </span>
                         </label>
-                        <input type="number" name="eval_batch_size" value="5" min="1" max="20" class="input input-bordered" />
+                        <input type="number" name="eval_batch_size" value="5" min="1" max="20"
+                            class="input input-bordered" />
                         <label class="label">
                             <span class="label-text-alt">同时处理的评估任务数量，影响评估速度</span>
                         </label>
                     </div>
-                    
+
                     <!-- 生成并发数 -->
                     <div class="form-control">
                         <label class="label">
@@ -185,7 +191,8 @@
                                 <i class="fas fa-info-circle"></i>
                             </span>
                         </label>
-                        <input type="number" name="judge_worker_num" value="5" min="1" max="100" class="input input-bordered" />
+                        <input type="number" name="judge_worker_num" value="5" min="1" max="100"
+                            class="input input-bordered" />
                         <label class="label">
                             <span class="label-text-alt">裁判模型的并发工作线程数，影响评估速度</span>
                         </label>
@@ -193,42 +200,43 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="card bg-base-100 shadow-xl mb-6">
             <div class="card-body">
                 <h2 class="card-title">
                     <i class="fas fa-database mr-2"></i> 选择评估数据集
                 </h2>
                 <p class="text-sm text-base-content/70 mb-4">选择一个或多个数据集用于评估模型性能。至少需要选择一个数据集。系统将自动使用数据集的默认配置进行评估。</p>
-                
+
                 {% if datasets %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {% for dataset in datasets %}
-                            <div class="card bg-base-200 dataset-card hover:bg-base-300 cursor-pointer transition-all"
-                                 onclick="handleCardClick(event, this, {{ dataset.id }})">
-                                <div class="card-body p-4">
-                                    <div class="flex justify-between">
-                                        <h3 class="font-semibold">{{ dataset.name }}</h3>
-                                        <div class="form-control">
-                                            <label class="cursor-pointer label py-0">
-                                                <input type="checkbox" name="dataset_{{ dataset.id }}" class="checkbox checkbox-primary checkbox-sm dataset-checkbox" />
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <p class="text-xs text-base-content/70">{{ dataset.description or '无描述' }}</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for dataset in datasets %}
+                    <div class="card bg-base-200 dataset-card hover:bg-base-300 cursor-pointer transition-all"
+                        onclick="handleCardClick(event, this, {{ dataset.id }})">
+                        <div class="card-body p-4">
+                            <div class="flex justify-between">
+                                <h3 class="font-semibold">{{ dataset.name }}</h3>
+                                <div class="form-control">
+                                    <label class="cursor-pointer label py-0">
+                                        <input type="checkbox" name="dataset_{{ dataset.id }}"
+                                            class="checkbox checkbox-primary checkbox-sm dataset-checkbox" />
+                                    </label>
                                 </div>
                             </div>
-                        {% endfor %}
+                            <p class="text-xs text-base-content/70">{{ dataset.description or '无描述' }}</p>
+                        </div>
                     </div>
+                    {% endfor %}
+                </div>
                 {% else %}
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>没有可用的测试数据集。请先在测试集管理中添加并启用数据集。</span>
-                    </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>没有可用的测试数据集。请先在测试集管理中添加并启用数据集。</span>
+                </div>
                 {% endif %}
             </div>
         </div>
-        
+
         <div class="flex justify-end">
             <button type="submit" id="submit-btn" class="btn btn-primary">
                 <i class="fas fa-play-circle mr-1"></i> 开始评估
@@ -243,20 +251,20 @@
 <script>
     // 防止重复点击的变量
     let isSubmitting = false;
-    
+
     // 处理卡片点击事件
     function handleCardClick(event, cardElement, datasetId) {
         // 如果点击的是复选框或其标签，不处理
         if (event.target.type === 'checkbox' || event.target.closest('label')) {
             return;
         }
-        
+
         // 否则切换复选框状态
         const checkbox = cardElement.querySelector('.dataset-checkbox');
         checkbox.checked = !checkbox.checked;
         updateCardStyle(cardElement, checkbox.checked);
     }
-    
+
     // 更新卡片样式
     function updateCardStyle(cardElement, isSelected) {
         if (isSelected) {
@@ -265,18 +273,18 @@
             cardElement.classList.remove('selected');
         }
     }
-    
+
     // 防止重复提交
     function preventDuplicateSubmit(event) {
         if (isSubmitting) {
             event.preventDefault();
             return false;
         }
-        
+
         // 验证表单
         const form = event.target.closest('form');
         if (!form) return true;
-        
+
         // 检查是否选择了数据集
         const selectedDatasets = form.querySelectorAll('input[type="checkbox"]:checked');
         if (selectedDatasets.length === 0) {
@@ -284,7 +292,7 @@
             event.preventDefault();
             return false;
         }
-        
+
         // 检查是否选择了模型
         const modelSelect = form.querySelector('select[name="model_id"]');
         if (!modelSelect.value) {
@@ -292,23 +300,23 @@
             event.preventDefault();
             return false;
         }
-        
+
         // 设置提交状态
         isSubmitting = true;
         const submitBtn = document.getElementById('submit-btn');
         const originalText = submitBtn.innerHTML;
-        
+
         // 更新按钮状态
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 正在创建评估...';
         submitBtn.classList.add('btn-disabled');
-        
+
         // 显示提示信息
         showNotification('正在创建评估任务，请稍候...', 'info');
-        
+
         return true;
     }
-    
+
     // 显示通知
     function showNotification(message, type = 'info') {
         // 创建通知元素
@@ -320,10 +328,10 @@
                 <span>${message}</span>
             </div>
         `;
-        
+
         // 添加到页面
         document.body.appendChild(notification);
-        
+
         // 3秒后自动移除
         setTimeout(() => {
             if (notification.parentNode) {
@@ -331,17 +339,17 @@
             }
         }, 3000);
     }
-    
+
     // 监听复选框变化事件
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const checkboxes = document.querySelectorAll('.dataset-checkbox');
-        checkboxes.forEach(function(checkbox) {
-            checkbox.addEventListener('change', function() {
+        checkboxes.forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
                 const card = this.closest('.dataset-card');
                 updateCardStyle(card, this.checked);
             });
         });
-        
+
         // 监听表单提交事件
         const form = document.querySelector('form');
         if (form) {
@@ -349,4 +357,4 @@
         }
     });
 </script>
-{% endblock %} 
+{% endblock %}

@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename # For secure filenames
 import math # 用于分页计算
 from datetime import datetime
 from sqlalchemy import or_, and_
+import tempfile # 用于创建临时文件
 
 # 创建一个名为 'datasets' 的蓝图
 bp = Blueprint('datasets', __name__, url_prefix='/datasets')
@@ -82,6 +83,83 @@ def add_custom_dataset():
     form = CustomDatasetForm()
     # Populate category choices dynamically
     form.categories.choices = [(cat.id, cat.name) for cat in DatasetCategory.query.order_by('name').all()]
+    
+    # 定义模板内容
+    custom_template = """{# 自定义格式数据集评估模板 #}
+
+{% macro gen_prompt(item) %}
+{# 生成提示，返回字符串 #}
+{{ item.query }}
+{% endmacro %}
+
+{% macro get_gold_answer(item) %}
+{# 获取标准答案，返回字符串 #}
+{{ item.response }}
+{% endmacro %}
+
+{% macro match(pred, gold) %}
+{# 匹配预测和标准答案，返回布尔值 #}
+{{ pred == gold }}
+{% endmacro %}
+
+{% macro parse_pred_result(pred) %}
+{# 解析预测结果，返回字符串 #}
+{{ pred }}
+{% endmacro %}
+
+{% macro get_config() %}
+{# 获取配置，返回字典 #}
+{
+    "metrics": ["accuracy", "f1"],
+    "aggregation": "mean"
+}
+{% endmacro %}
+
+{% macro compute_metric(pred, gold) %}
+{# 计算指标，返回字典 #}
+{% if pred == gold %}
+    {"score": 1.0}
+{% else %}
+    {"score": 0.0}
+{% endif %}
+{% endmacro %}"""
+
+    rag_template = """{# RAG格式数据集评估模板 #}
+
+{% macro http_request(url, method='GET', headers={}, data=None) %}
+{# 发送HTTP请求获取数据
+   参数:
+   - url: 请求URL
+   - method: 请求方法，支持GET/POST
+   - headers: 请求头，字典格式
+   - data: POST请求体数据，字典格式
+   返回: 请求响应内容
+#}
+{% set response = http.request(url=url, method=method, headers=headers, data=data) %}
+{{ response }}
+{% endmacro %}
+
+{% macro get_context(user_input) %}
+{# 获取检索上下文
+   可以通过HTTP请求获取上下文，例如:
+   {% set url = "http://api.example.com/retrieve?query=" + user_input|urlencode %}
+   {% set context_data = http_request(url) %}
+   {{ context_data }}
+#}
+{% endmacro %}
+
+{% macro get_response(user_input, context) %}
+{# 获取最终结果
+   可以通过HTTP请求获取回答，例如:
+   {% set url = "http://api.example.com/generate" %}
+   {% set headers = {"Content-Type": "application/json"} %}
+   {% set data = {"query": user_input, "context": context} %}
+   {% set response_data = http_request(url, method='POST', headers=headers, data=data) %}
+   {{ response_data }}
+#}
+{% endmacro %}
+
+"""
 
     if form.validate_on_submit():
         try:
@@ -95,9 +173,13 @@ def add_custom_dataset():
             
             if existing_dataset:
                 flash(f'数据集名称 "{dataset_name}" 已存在，请使用其他名称。', 'error')
-                return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                return render_template('datasets/add_custom_dataset.html', 
+                                     title='添加自定义数据集', 
+                                     form=form,
+                                     custom_template=custom_template,
+                                     rag_template=rag_template)
             
-            if form.jinja2_template.data:
+            if form.jinja2_template.data and form.format.data == 'CUSTOM':
                 # 验证Jinja2模板是否包含所需的宏
                 required_macros = ['gen_prompt', 'get_gold_answer', 'match', 'parse_pred_result', 'get_config']
                 template_content = form.jinja2_template.data
@@ -108,7 +190,11 @@ def add_custom_dataset():
                 
                 if missing_macros:
                     flash(f'Jinja2模板缺少以下必需的宏：{", ".join(missing_macros)}', 'error')
-                    return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                    return render_template('datasets/add_custom_dataset.html', 
+                                         title='添加自定义数据集', 
+                                         form=form,
+                                         custom_template=custom_template,
+                                         rag_template=rag_template)
                 
             # Process categories from selected IDs
             category_objects = []
@@ -140,37 +226,98 @@ def add_custom_dataset():
                     if filename.endswith('.jsonl'):
                         # 处理JSONL文件
                         validated_lines = 0
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            for i, line in enumerate(f):
-                                if i >= 5:  # 只检查前5行
-                                    break
-                                try:
-                                    json.loads(line.strip())
-                                    validated_lines += 1
-                                except json.JSONDecodeError:
-                                    continue
+                        
+                        # 如果是RAG格式，并且有jinja2模板，则处理数据集项
+                        if form.format.data == 'RAG' and form.jinja2_template.data:
+                            # 创建临时文件用于存储处理后的数据
+                            temp_file_path = os.path.join(upload_dir, f"temp_{new_filename}")
+                            processed_count = 0
+                            
+                            with open(file_path, 'r', encoding='utf-8') as f_in, open(temp_file_path, 'w', encoding='utf-8') as f_out:
+                                for i, line in enumerate(f_in):
+                                    try:
+                                        item = json.loads(line.strip())
+                                        # 处理RAG数据集项，填充缺失的字段
+                                        processed_item = DatasetService.process_rag_dataset_item(
+                                            item, 
+                                            form.jinja2_template.data
+                                        )
+                                        if not processed_item:
+                                            flash(f'Jinja2模板渲染失败，请检查模板是否正确', 'error')
+                                            return render_template('datasets/add_custom_dataset.html', 
+                                                                title='添加自定义数据集', 
+                                                                form=form,
+                                                                custom_template=custom_template,
+                                                                rag_template=rag_template)
+                                        # 写入处理后的数据
+                                        f_out.write(json.dumps(processed_item, ensure_ascii=False) + '\n')
+                                        processed_count += 1
+                                        validated_lines += 1
+                                    except json.JSONDecodeError:
+                                        # 如果解析失败，则写入原始行
+                                        f_out.write(line)
+                                        continue
+                            
+                            # 替换原始文件
+                            os.replace(temp_file_path, file_path)
+                            current_app.logger.info(f"已处理 {processed_count} 条RAG数据集项")
+                        else:
+                            # 常规处理，只验证JSON格式
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                for i, line in enumerate(f):
+                                    if i >= 5:  # 只检查前5行
+                                        break
+                                    try:
+                                        json.loads(line.strip())
+                                        validated_lines += 1
+                                    except json.JSONDecodeError:
+                                        continue
                         
                         # 检查是否有有效数据
                         if validated_lines == 0:
                             flash('文件为空或前5行没有有效的数据', 'error')
-                            return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                            return render_template('datasets/add_custom_dataset.html', 
+                                                 title='添加自定义数据集', 
+                                                 form=form,
+                                                 custom_template=custom_template,
+                                                 rag_template=rag_template)
                         
                         # 创建数据集结构信息
-                        dataset_info_data = {
-                            subset_name: {
-                                "features": {
-                                    "system": {"dtype": "string", "id": None, "_type": "Value"},
-                                    "query": {"dtype": "string", "id": None, "_type": "Value"},
-                                    "response": {"dtype": "string", "id": None, "_type": "Value"}
-                                },
-                                "splits": {
-                                    "test": {
-                                        "name": "test", 
-                                        "dataset_name": subset_name
+                        if form.format.data == 'RAG':
+                            # RAG格式的数据集结构
+                            dataset_info_data = {
+                                subset_name: {
+                                    "features": {
+                                        "user_input": {"dtype": "string", "id": None, "_type": "Value"},
+                                        "retrieved_contexts": {"dtype": "list", "id": None, "_type": "Sequence", "feature": {"dtype": "string", "id": None, "_type": "Value"}},
+                                        "response": {"dtype": "string", "id": None, "_type": "Value"},
+                                        "reference": {"dtype": "string", "id": None, "_type": "Value"}
+                                    },
+                                    "splits": {
+                                        "test": {
+                                            "name": "test", 
+                                            "dataset_name": subset_name
+                                        }
                                     }
                                 }
                             }
-                        }
+                        else:
+                            # 标准QA或CUSTOM格式的数据集结构
+                            dataset_info_data = {
+                                subset_name: {
+                                    "features": {
+                                        "system": {"dtype": "string", "id": None, "_type": "Value"},
+                                        "query": {"dtype": "string", "id": None, "_type": "Value"},
+                                        "response": {"dtype": "string", "id": None, "_type": "Value"}
+                                    },
+                                    "splits": {
+                                        "test": {
+                                            "name": "test", 
+                                            "dataset_name": subset_name
+                                        }
+                                    }
+                                }
+                            }
                     elif filename.endswith('.csv'):
                         # 处理CSV文件
                         import pandas as pd
@@ -182,11 +329,19 @@ def add_custom_dataset():
                             
                             if not all(col in df.columns for col in required_columns):
                                 flash('CSV文件必须包含question和answer列', 'error')
-                                return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                return render_template('datasets/add_custom_dataset.html', 
+                                                     title='添加自定义数据集', 
+                                                     form=form,
+                                                     custom_template=custom_template,
+                                                     rag_template=rag_template)
                             
                             if not option_columns:
                                 flash('CSV文件必须包含A、B、C、D选项列', 'error')
-                                return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                                return render_template('datasets/add_custom_dataset.html', 
+                                                     title='添加自定义数据集', 
+                                                     form=form,
+                                                     custom_template=custom_template,
+                                                     rag_template=rag_template)
                             
                             # 动态创建features，包含所有检测到的选项列
                             features = {
@@ -211,12 +366,20 @@ def add_custom_dataset():
                             }
                         except Exception as e:
                             flash(f'处理CSV文件时出错：{str(e)}', 'error')
-                            return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                            return render_template('datasets/add_custom_dataset.html', 
+                                                 title='添加自定义数据集', 
+                                                 form=form,
+                                                 custom_template=custom_template,
+                                                 rag_template=rag_template)
                 else:
                     flash('上传的文件名无效。', 'warning')
             else:
                 flash('请上传数据集文件。', 'error')
-                return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form)
+                return render_template('datasets/add_custom_dataset.html', 
+                                     title='添加自定义数据集', 
+                                     form=form,
+                                     custom_template=custom_template,
+                                     rag_template=rag_template)
             
             # 处理发布日期，如果为空则设置为当前日期
             publish_date = form.publish_date.data
@@ -233,7 +396,7 @@ def add_custom_dataset():
                 dataset_type='自建',
                 visibility=form.visibility.data,
                 format=form.format.data,
-                jinja2_template=form.jinja2_template.data if form.format.data == 'CUSTOM' else None,
+                jinja2_template=form.jinja2_template.data if form.format.data in ['CUSTOM', 'RAG'] else None,
                 categories=category_objects
             )
             db.session.add(new_dataset)
@@ -252,7 +415,11 @@ def add_custom_dataset():
     if not form.categories.choices: # Ensure choices are set if validation failed and it's a POST
         form.categories.choices = [(cat.id, cat.name) for cat in DatasetCategory.query.order_by('name').all()]
         
-    return render_template('datasets/add_custom_dataset.html', title='添加自定义数据集', form=form) 
+    return render_template('datasets/add_custom_dataset.html', 
+                         title='添加自定义数据集', 
+                         form=form,
+                         custom_template=custom_template,
+                         rag_template=rag_template) 
 
 @bp.route('/<int:dataset_id>/data')
 def list_dataset_data(dataset_id):

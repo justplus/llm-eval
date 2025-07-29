@@ -38,17 +38,10 @@ def create_evaluation():
     """创建模型评估页面"""
     if request.method == 'GET':
         # 获取用户可用的自定义模型列表 (被评估模型)
-        # 移除is_validated限制，允许用户评估自己的所有自定义模型
         custom_models = AIModel.query.filter_by(is_system_model=False, user_id=current_user.id).order_by(AIModel.display_name.asc()).all()
-        
-        # 调试信息
-        current_app.logger.info(f"用户 {current_user.username} 的自定义模型数量: {len(custom_models)}")
-        for model in custom_models:
-            current_app.logger.info(f"模型: {model.display_name}, 验证状态: {model.is_validated}")
         
         # 获取系统内置模型列表 (裁判模型)
         system_models = AIModel.query.filter_by(is_system_model=True).order_by(AIModel.display_name.asc()).all()
-        current_app.logger.info(f"系统模型数量: {len(system_models)}")
 
         all_models = system_models
         all_models.extend(custom_models)
@@ -72,6 +65,9 @@ def create_evaluation():
                     Dataset.source.is_(None),
                     Dataset.source == '系统'
                 )
+            ),
+            and_(
+                Dataset.format != 'RAG'
             )
         ).order_by(Dataset.id.desc()).all()
         

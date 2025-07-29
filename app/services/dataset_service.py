@@ -1,7 +1,10 @@
 import json
 import os
+import requests
 from flask import current_app
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any, Optional
+from urllib.parse import quote_plus
+import logging
 
 # 导入ModelScope的SDK
 from modelscope import MsDataset
@@ -252,3 +255,192 @@ class DatasetService:
         except Exception as e:
             current_app.logger.error(f"Error loading data from ModelScope: {e}")
             return [], 0 
+
+    @staticmethod
+    def execute_http_request(url: str, method: str = 'GET', headers: Dict = None, data: Any = None) -> str:
+        """
+        执行HTTP请求，用于jinja2模板中调用
+        
+        Args:
+            url: 请求URL
+            method: 请求方法，支持GET/POST
+            headers: 请求头，字典格式
+            data: POST请求体数据
+            
+        Returns:
+            str: 请求响应内容
+        """
+        try:
+            headers = headers or {}
+            method = method.upper()
+            
+            current_app.logger.info(f"执行HTTP请求: {method} {url}")
+            
+            if method == 'GET':
+                response = requests.get(url, headers=headers, timeout=30)
+            elif method == 'POST':
+                response = requests.post(url, headers=headers, json=data, timeout=30)
+            else:
+                current_app.logger.error(f"不支持的HTTP方法: {method}")
+                return ""
+            
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            current_app.logger.error(f"HTTP请求失败: {e}")
+            return ""
+    
+    @staticmethod
+    def create_jinja2_environment(user_input: str = None, context: List[str] = None):
+        """
+        创建一个jinja2环境，包含HTTP请求功能
+        
+        Args:
+            user_input: 用户输入
+            context: 上下文列表
+            
+        Returns:
+            jinja2.Environment: jinja2环境
+        """
+        from jinja2 import Environment, BaseLoader
+        import json
+        
+        # 创建jinja2环境
+        env = Environment(loader=BaseLoader())
+        
+        # 添加HTTP请求功能
+        class HttpRequestWrapper:
+            @staticmethod
+            def request(url, method='GET', headers=None, data=None):
+                return DatasetService.execute_http_request(url, method, headers, data)
+                
+            @staticmethod
+            def urlencode(text):
+                if text:
+                    return quote_plus(str(text))
+                return ""
+        
+        # 添加全局变量
+        env.globals['http'] = HttpRequestWrapper()
+        env.globals['user_input'] = user_input
+        env.globals['context'] = context
+        
+        # 添加过滤器
+        env.filters['urlencode'] = HttpRequestWrapper.urlencode
+        
+        # 添加JSON过滤器
+        def tojson_filter(value):
+            """将Python对象转换为JSON字符串"""
+            try:
+                return json.dumps(value, ensure_ascii=False)
+            except Exception:
+                return str(value)
+                
+        def fromjson_filter(value):
+            """将JSON字符串转换为Python对象"""
+            try:
+                if isinstance(value, str):
+                    return json.loads(value)
+                return value
+            except Exception:
+                return value
+        
+        env.filters['tojson'] = tojson_filter
+        env.filters['fromjson'] = fromjson_filter
+        
+        return env
+    
+    @staticmethod
+    def render_jinja2_template(template_content: str, macro_name: str, **kwargs) -> str:
+        """
+        渲染jinja2模板中的指定宏
+        
+        Args:
+            template_content: 模板内容
+            macro_name: 宏名称
+            **kwargs: 传递给宏的参数
+            
+        Returns:
+            str: 渲染结果
+        """
+        try:
+            # 创建jinja2环境
+            env = DatasetService.create_jinja2_environment(**kwargs)
+            
+            # 解析模板
+            template = env.from_string(template_content)
+            
+            # 获取宏
+            macro = getattr(template.module, macro_name, None)
+            if not macro:
+                current_app.logger.error(f"模板中未找到宏: {macro_name}")
+                return ""
+            
+            # 调用宏并返回结果
+            return macro(**kwargs)
+        except Exception as e:
+            current_app.logger.error(f"渲染jinja2模板失败: {e}")
+            return None
+            
+    @staticmethod
+    def process_rag_dataset_item(item: Dict, jinja2_template: Optional[str] = None) -> Dict:
+        """
+        处理RAG数据集项，根据需要使用jinja2模板填充缺失的字段
+        
+        Args:
+            item: RAG数据集项
+            jinja2_template: jinja2模板内容
+            
+        Returns:
+            Dict: 处理后的数据集项
+        """
+        # 如果没有jinja2模板或者已经包含了所需字段，则直接返回
+        if not jinja2_template or (item.get('retrieved_contexts') and item.get('response')):
+            return item
+            
+        # 复制一份数据，避免修改原始数据
+        processed_item = item.copy()
+        user_input = item.get('user_input', '')
+        
+        # 如果缺少retrieved_contexts字段，使用jinja2模板获取
+        if not processed_item.get('retrieved_contexts') and user_input:
+            try:
+                context_result = DatasetService.render_jinja2_template(
+                    jinja2_template, 
+                    'get_context', 
+                    user_input=user_input
+                )
+                if not context_result:
+                    return None
+                
+                # 尝试解析结果为JSON列表
+                try:
+                    contexts = json.loads(context_result)
+                    if isinstance(contexts, list):
+                        processed_item['retrieved_contexts'] = contexts
+                    else:
+                        processed_item['retrieved_contexts'] = [context_result]
+                except json.JSONDecodeError:
+                    # 如果不是JSON格式，则作为单个字符串处理
+                    processed_item['retrieved_contexts'] = [context_result] if context_result else []
+            except Exception as e:
+                current_app.logger.error(f"获取上下文失败: {e}")
+                processed_item['retrieved_contexts'] = []
+        
+        # 如果缺少response字段，使用jinja2模板获取
+        if not processed_item.get('response') and user_input:
+            try:
+                context = processed_item.get('retrieved_contexts', [])
+                response_result = DatasetService.render_jinja2_template(
+                    jinja2_template, 
+                    'get_response', 
+                    user_input=user_input,
+                    context=context
+                )
+                if not response_result:
+                    return None
+                processed_item['response'] = response_result
+            except Exception as e:
+                current_app.logger.error(f"获取回答失败: {e}")
+        
+        return processed_item 

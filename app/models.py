@@ -170,6 +170,87 @@ class ModelEvaluation(db.Model):
     def __repr__(self):
         return f'<ModelEvaluation {self.id} for Model {self.model_id}>'
 
+# RAG评估相关数据模型
+class RAGEvaluation(db.Model):
+    """RAG评估记录"""
+    __tablename__ = 'rag_evaluation'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(150), nullable=True)
+    
+    # 裁判模型配置
+    judge_model_id = db.Column(db.Integer, db.ForeignKey('model.id'), nullable=False)
+    judge_temperature = db.Column(db.Float, nullable=False, default=0.7)
+    judge_max_tokens = db.Column(db.Integer, nullable=False, default=2048)
+    judge_top_k = db.Column(db.Integer, nullable=True, default=20)
+    judge_top_p = db.Column(db.Float, nullable=True, default=0.8)
+    
+    # 嵌入模型配置
+    embedding_model_id = db.Column(db.Integer, db.ForeignKey('model.id'), nullable=False)
+    embedding_dimension = db.Column(db.Integer, nullable=False, default=1536)
+    
+    # 评估指标配置
+    evaluation_metrics = db.Column(db.JSON, nullable=True)  # 存储选择的评估指标列表
+    
+    # 状态和结果
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    created_at = db.Column(db.DateTime, default=get_beijing_time)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    result_summary = db.Column(db.JSON, nullable=True)
+    
+    # 关系
+    user = db.relationship('User', backref=db.backref('rag_evaluations', lazy='dynamic'))
+    judge_model = db.relationship('AIModel', foreign_keys=[judge_model_id], backref=db.backref('rag_judge_evaluations', lazy='dynamic'))
+    embedding_model = db.relationship('AIModel', foreign_keys=[embedding_model_id], backref=db.backref('rag_embedding_evaluations', lazy='dynamic'))
+    datasets = db.relationship('RAGEvaluationDataset', back_populates='evaluation', lazy='dynamic', cascade="all, delete-orphan")
+    evaluation_results = db.relationship('RAGEvaluationResult', back_populates='evaluation', lazy='dynamic', cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f'<RAGEvaluation {self.id} by User {self.user_id}>'
+
+class RAGEvaluationDataset(db.Model):
+    """RAG评估中使用的数据集"""
+    __tablename__ = 'rag_evaluation_dataset'
+    evaluation_id = db.Column(db.Integer, db.ForeignKey('rag_evaluation.id'), primary_key=True)
+    dataset_id = db.Column(db.Integer, db.ForeignKey('dataset.id'), primary_key=True)
+    subset = db.Column(db.String(100), nullable=True)
+    split = db.Column(db.String(100), nullable=True)
+    
+    evaluation = db.relationship('RAGEvaluation', back_populates='datasets')
+    dataset = db.relationship('Dataset', backref=db.backref('rag_evaluations', lazy='dynamic'))
+    
+    def __repr__(self):
+        return f'<RAGEvaluationDataset {self.dataset_id} for RAGEvaluation {self.evaluation_id}>'
+
+class RAGEvaluationResult(db.Model):
+    """RAG评估的详细结果"""
+    __tablename__ = 'rag_evaluation_result'
+    id = db.Column(db.Integer, primary_key=True)
+    evaluation_id = db.Column(db.Integer, db.ForeignKey('rag_evaluation.id'), nullable=False)
+    dataset_id = db.Column(db.Integer, db.ForeignKey('dataset.id'), nullable=False)
+    
+    # 输入数据
+    user_input = db.Column(db.Text, nullable=False)
+    retrieved_contexts = db.Column(db.JSON, nullable=True)  # 存储检索到的上下文列表
+    reference_answer = db.Column(db.Text, nullable=True)
+    response = db.Column(db.Text, nullable=True)  # 模型生成的回答
+    
+    # 评估结果
+    relevance_score = db.Column(db.Float, nullable=True)  # 相关性得分
+    faithfulness_score = db.Column(db.Float, nullable=True)  # 忠实性得分
+    answer_correctness_score = db.Column(db.Float, nullable=True)  # 答案正确性得分
+    context_precision_score = db.Column(db.Float, nullable=True)  # 上下文精确性得分
+    context_recall_score = db.Column(db.Float, nullable=True)  # 上下文召回率得分
+    
+    # 详细反馈
+    feedback = db.Column(db.Text, nullable=True)
+    
+    evaluation = db.relationship('RAGEvaluation', back_populates='evaluation_results')
+    dataset = db.relationship('Dataset', backref=db.backref('rag_evaluation_results', lazy='dynamic'))
+    
+    def __repr__(self):
+        return f'<RAGEvaluationResult {self.id} for RAGEvaluation {self.evaluation_id}>'
+
 class ModelEvaluationDataset(db.Model):
     """模型评估中使用的数据集"""
     __tablename__ = 'evaluation_effectiveness_dataset'
@@ -258,7 +339,7 @@ def init_database_data():
                 (7, '理解'),
                 (3, '知识'),
                 (23, '综合'),
-                (15, '语言'),
+                (15, '语言')
             ]
             
             for cat_id, cat_name in categories:

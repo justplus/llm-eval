@@ -11,6 +11,7 @@ openai
 modelscope==1.25.0
 evalscope
 evalscope[perf]
+evalscope[rag]
 pandas
 numpy
 openpyxl
