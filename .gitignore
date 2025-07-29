@@ -146,3 +146,5 @@ data/
 .DS_Store
 .flaskenv
 .env
+
+.vscode/

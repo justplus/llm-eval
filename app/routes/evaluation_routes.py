@@ -65,6 +65,9 @@ def create_evaluation():
                     Dataset.source.is_(None),
                     Dataset.source == '系统'
                 )
+            ),
+            and_(
+                Dataset.format != 'RAG'
             )
         ).order_by(Dataset.id.desc()).all()
         

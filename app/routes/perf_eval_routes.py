@@ -25,7 +25,9 @@ def create():
     
     # 获取可用的数据集
     # 权限控制：自己创建的自建数据集 + 别人公开的自建数据集
-    available_datasets = [
+    # 添加openqa数据集，内置
+    available_datasets = [(-1, 'openqa')]
+    available_datasets.extend([
         (d.id, d.name) for d in Dataset.query.filter(
             and_(
                 Dataset.is_active == True,
@@ -38,12 +40,12 @@ def create():
                         Dataset.source != current_user.username,
                         Dataset.visibility == '公开'
                     )
-                )
+                ),
+                Dataset.format != 'RAG'
             )
-        ).all()
-    ]
-    # 添加openqa数据集，内置
-    available_datasets.append((-1, 'openqa'))
+        ).order_by(Dataset.id.desc()).all()
+    ])
+    
 
     form.model_name.choices = user_models
     form.dataset_name.choices = available_datasets
