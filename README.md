@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1 align="center">LLM-Eva</h1>
+<h1 align="center">LLM-Eval</h1>
 
 一个强大的大语言模型评估平台，支持多种评估基准、自定义数据集和性能测试。
 
