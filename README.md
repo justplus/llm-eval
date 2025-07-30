@@ -601,18 +601,11 @@ llm-eva/
 - 更新相关文档
 - 确保所有测试通过
 
-## 📝 更新日志
-
-### v1.0.0
-- ✨ 初始版本发布
-- 🎯 支持基础模型评估功能
-- 📊 集成性能测试模块
-- 🛠 完整的数据集管理系统
 
 ## 🆘 常见问题
 
 ### Q: 如何添加新的评估基准？
-A: 可以通过使用Jinja2模板来实现，也可以通过扩展 EvalScope 的适配器来添加自定义基准，可以参考[custom_dataset_adapter.py](https://github.com/justplus/llm-eval/blob/main/app/adapter/custom_dataset_adapter.py)。
+A: 可以通过使用[Jinja2](https://jinja.palletsprojects.com/en/stable/)模板来实现，也可以通过扩展 EvalScope 的适配器来添加自定义基准，可以参考[custom_dataset_adapter.py](https://github.com/justplus/llm-eval/blob/main/app/adapter/custom_dataset_adapter.py)。
 
 ### Q: 支持哪些模型API格式？
 A: 支持 OpenAI 兼容的 API 格式，包括大部分主流大模型服务。
@@ -636,5 +629,5 @@ A: 系统支持分批处理和异步任务，可以处理大规模评估任务�
 ---
 
 <div align="center">
-如果这个项目对你有帮助，请给我们一个 ⭐️！
+如果这个项目对你有帮助，请给一个 ⭐️！
 </div>
