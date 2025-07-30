@@ -97,47 +97,34 @@ def init_database():
         
         app = create_app()
         with app.app_context():
-            # 使用Flask-Migrate管理数据库迁移，而不是直接创建所有表
             from flask_migrate import upgrade as migrate_upgrade
-            from flask_migrate import init as migrate_init
-            from flask_migrate import migrate as migrate_migrate
-            import os
+            from flask_migrate import stamp as migrate_stamp
+            from sqlalchemy import text, inspect
             
             print("应用数据库迁移...")
-            # 检查migrations目录是否已存在
-            migrations_dir = os.path.join('/app', 'migrations')  # Docker环境中的路径
-            if not os.path.exists(migrations_dir):
-                migrations_dir = os.path.join(os.getcwd(), 'migrations')  # 非Docker环境
+            # 检查数据库中是否有表以及是否包含rag_evaluation表
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+            has_tables = len(tables) > 0
+            has_rag_evaluation = 'rag_evaluation' in tables
             
-            migrations_versions_dir = os.path.join(migrations_dir, 'versions')
-            
-            # 只有当migrations目录不存在或为空时才执行init
-            if not os.path.exists(migrations_dir) or not os.path.exists(migrations_versions_dir):
-                print("初始化Flask-Migrate...")
-                try:
-                    migrate_init()
-                    print("Flask-Migrate初始化成功")
-                except Exception as e:
-                    print(f"Flask-Migrate初始化失败: {e}")
-                    pass
-            else:
-                print("Flask-Migrate已初始化，跳过初始化步骤")
-                
             try:
-                migrate_migrate()
-                migrate_upgrade()
+                if not has_tables:
+                    # 新用户，直接升级数据库
+                    print("数据库中没有表，作为新用户直接执行upgrade...")
+                    migrate_upgrade()
+                elif has_tables and not has_rag_evaluation:
+                    # 老用户，需要先标记为before0730版本，然后再升级
+                    print("检测到老用户数据库（没有rag_evaluation表），执行stamp和upgrade...")
+                    migrate_stamp(revision='before0730')
+                    migrate_upgrade()
+                    
                 print("数据库迁移完成")
             except Exception as e:
                 print(f"数据库迁移出现问题，尝试使用替代方法: {e}")
                 # 如果迁移出现问题，尝试使用传统的方式创建表
                 db.create_all()
                 print("使用db.create_all()创建表完成")
-            
-            # 验证表是否创建成功
-            from sqlalchemy import text
-            result = db.session.execute(text("SHOW TABLES"))
-            tables = [row[0] for row in result.fetchall()]
-            print(f"已创建的表: {', '.join(tables)}")
 
             # 初始化基础数据（只在首次部署时执行）
             print("开始初始化基础数据...")
