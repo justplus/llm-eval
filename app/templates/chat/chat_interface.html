@@ -4,7 +4,7 @@
 {% block title %}{{ title }} - {{ super() }}{% endblock %}
 
 {% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="{{ url_for('static', filename='js/marked.min.js') }}"></script>
 <style>
     #chat-messages-container {
         height: calc(100vh - 300px); /* Adjust based on your header/footer/input height */
