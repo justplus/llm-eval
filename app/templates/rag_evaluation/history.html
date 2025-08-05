@@ -74,13 +74,9 @@
                                         class="btn btn-sm btn-outline">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <form method="POST"
-                                        action="{{ url_for('rag_eval.delete', evaluation_id=evaluation.id) }}"
-                                        class="inline" onsubmit="return confirm('确定要删除这个RAG评估吗？')">
-                                        <button type="submit" class="btn btn-sm btn-outline btn-error">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    <button onclick="openDeleteModal('{{ evaluation.id }}', '{{ evaluation.name }}')" class="btn btn-sm btn-outline btn-error">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -132,6 +128,24 @@
     </div>
     {% endif %}
 </div>
+
+<!-- 删除确认模态框 -->
+<dialog id="delete_modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">确认删除</h3>
+        <p class="py-4">您确定要删除评估 <span id="delete_eval_name" class="font-semibold"></span> 吗？此操作不可撤销。</p>
+        <form id="delete_form" method="POST" action="" class="modal-action">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn" onclick="closeDeleteModal()">取消</button>
+                <button type="submit" class="btn btn-error">确认删除</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>关闭</button>
+    </form>
+</dialog>
 
 <script>
     // 定期检查运行中的评估状态
@@ -196,6 +210,24 @@
         
         // 然后每10秒检查一次
         setInterval(checkRunningEvaluations, 10000); // 10秒检查一次
+    }
+    
+    // 打开删除确认模态框
+    function openDeleteModal(evaluationId, evaluationName) {
+        const modal = document.getElementById('delete_modal');
+        const form = document.getElementById('delete_form');
+        const nameSpan = document.getElementById('delete_eval_name');
+        
+        form.action = `/rag-evaluation/${evaluationId}/delete`;
+        nameSpan.textContent = evaluationName || `#${evaluationId}`;
+        
+        modal.showModal();
+    }
+    
+    // 关闭删除确认模态框
+    function closeDeleteModal() {
+        const modal = document.getElementById('delete_modal');
+        modal.close();
     }
 </script>
 {% endblock %}
